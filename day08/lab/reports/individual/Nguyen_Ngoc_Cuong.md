@@ -68,7 +68,7 @@ _
 Tôi sẽ cải tiến bằng cách áp dụng thêm LLM có thể dùng local khác như phi3 thay vì sử dụng Gemini, OpanAI có rủi ro là không phải ai cũng có API key trả phí để phục vụ cho bài tập này
 Tôi sẽ thử thêm RETRIEVAL — DENSE (Vector Search) kết hợp với MMR. Lý do là trong các lần chạy test, các kết quả của top 3 có vẻ khá giống nhua 80 đến 90%, thiếu đi độ bao quát toàn diện
 
----
+---Note: Phan mình lam va dong gop o tren nhanh Cuong
 
 *Lưu file này với tên: `reports/individual/[ten_ban].md`*
 *Ví dụ: `reports/individual/nguyen_van_a.md`*
