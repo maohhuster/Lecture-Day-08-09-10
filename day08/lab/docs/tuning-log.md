@@ -348,3 +348,37 @@ Việc cần làm Sprint 2:
   2. Implement call_llm() — gọi OpenAI hoặc Gemini
   3. Chạy rag_answer() với 3+ test queries
   4. Verify: output có citation không? Câu không có docs → abstain không?
+
+---
+
+## Grading Questions Run (Sprint 4)
+
+**Ngày:** 2026-04-13  
+**Input:** `data/grading_questions.json` (10 câu)  
+**Output log:** `logs/grading_run.json`  
+
+**Config chạy grading:**
+```
+retrieval_mode = "hybrid"
+top_k_search = 10
+top_k_select = 3
+use_rerank = True
+embedding_provider = "hash"   # fallback offline để tránh lỗi permission/cache trong sandbox
+```
+
+**Kết quả (tóm tắt):**
+| ID | Answer (short) | Sources |
+|----|----------------|---------|
+| gq01 | SLA P1 giảm 6h → 4h (v2026.1) | support/helpdesk-faq.md; support/sla-p1-2026.pdf |
+| gq02 | Tối đa 2 thiết bị | support/helpdesk-faq.md; support/sla-p1-2026.pdf |
+| gq03 | Không hoàn tiền (Flash Sale + đã kích hoạt) | policy/refund-v4.pdf |
+| gq04 | Không đủ dữ liệu | policy/refund-v4.pdf |
+| gq05 | Trả lời lệch (đang dính emergency temporary access 24h) | it/access-control-sop.md; support/helpdesk-faq.md |
+| gq06 | Temporary access tối đa 24h + log Security Audit | it/access-control-sop.md; support/sla-p1-2026.pdf |
+| gq07 | Không đủ dữ liệu (abstain) | support/helpdesk-faq.md; support/sla-p1-2026.pdf |
+| gq08 | Không đủ dữ liệu | policy/refund-v4.pdf; support/helpdesk-faq.md; support/sla-p1-2026.pdf |
+| gq09 | Không đủ dữ liệu | it/access-control-sop.md; policy/refund-v4.pdf; support/helpdesk-faq.md |
+| gq10 | Không áp dụng trước 01/02/2026; đơn cũ theo v3 | policy/refund-v4.pdf |
+
+**Ghi chú nhanh:**
+- Với config hiện tại, các câu gq04/gq08/gq09 bị abstain → cần kiểm tra lại retrieval (expected source) và/hoặc prompt grounding để kéo đúng con số/chi tiết từ HR/Helpdesk.

@@ -225,7 +225,6 @@ def get_embedding(text: str) -> List[float]:
     Tạo embedding vector cho một đoạn text.
     Sử dụng SentenceTransformers local cho data tiếng Việt.
     """
-    # from sentence_transformers import SentenceTransformer
     import os
     
     provider = os.getenv("EMBEDDING_PROVIDER", "local").lower()
@@ -238,12 +237,56 @@ def get_embedding(text: str) -> List[float]:
             model="text-embedding-3-small"
         )
         return response.data[0].embedding
-    # else:
-    #     # Sử dụng local embedding mặc định (tốt cho tiếng Việt)
-    #     if not hasattr(get_embedding, "local_model"):
-    #         get_embedding.local_model = SentenceTransformer(os.getenv("LOCAL_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2"))
-        
-    #     return get_embedding.local_model.encode(text).tolist()
+    else:
+        # Sử dụng local embedding mặc định (tốt cho tiếng Việt) — không cần API key
+        from pathlib import Path
+        import math
+        import re as _re
+        import hashlib
+
+        def _hash_embedding(s: str, dim: int = 384) -> List[float]:
+            """
+            Fallback embedding (không cần network / model download).
+            Không mạnh như sentence-transformers, nhưng đủ để demo retrieval + kết hợp BM25.
+            """
+            vec = [0.0] * dim
+            tokens = _re.findall(r"[\\w\\-]+", (s or "").lower())
+            for t in tokens:
+                h = hashlib.blake2b(t.encode("utf-8"), digest_size=8).digest()
+                idx = int.from_bytes(h[:4], "little") % dim
+                sign = -1.0 if (h[4] & 1) else 1.0
+                vec[idx] += sign
+            # L2 normalize (cosine space)
+            norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+            return [v / norm for v in vec]
+
+        # Cho phép ép dùng embedding hash để chạy offline/sandbox ổn định
+        if provider in ("hash", "offline"):
+            return _hash_embedding(text)
+
+        model_name = os.getenv(
+            "LOCAL_EMBEDDING_MODEL",
+            "paraphrase-multilingual-MiniLM-L12-v2",
+        )
+        if not hasattr(get_embedding, "local_model"):
+            # Lưu cache model vào workspace để tránh lỗi permission trong sandbox
+            cache_dir = Path(__file__).parent / ".hf_cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                from sentence_transformers import SentenceTransformer
+                get_embedding.local_model = SentenceTransformer(model_name, cache_folder=str(cache_dir))
+            except Exception as e:
+                # Nếu environment không cho phép download/cache model (proxy/permission),
+                # fallback sang hash embedding để pipeline vẫn chạy được end-to-end.
+                get_embedding.local_model = None
+                get_embedding._local_model_error = str(e)
+
+        if getattr(get_embedding, "local_model", None) is not None:
+            vec = get_embedding.local_model.encode(text)
+            # sentence-transformers có thể trả numpy array; Chroma cần list[float]
+            return vec.tolist() if hasattr(vec, "tolist") else list(vec)
+
+        return _hash_embedding(text)
 
 
 def build_index(docs_dir: Path = DOCS_DIR, db_dir: Path = CHROMA_DB_DIR) -> None:

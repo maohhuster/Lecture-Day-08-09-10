@@ -5,3 +5,11 @@
 # Grading questions — không public trước 17:00
 day08/lab/data/grading_questions.json
 .env
+
+# Python
+__pycache__/
+*.pyc
+
+# Local vector DB / caches (do not commit)
+day08/lab/chroma_db/
+day08/lab/.hf_cache/
