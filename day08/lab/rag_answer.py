@@ -27,6 +27,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Sửa lỗi hiển thị tiếng Việt trên Windows Console
+import sys
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 # =============================================================================
 # CẤU HÌNH
 # =============================================================================
@@ -207,33 +213,60 @@ def rerank(
     top_k: int = TOP_K_SELECT,
 ) -> List[Dict[str, Any]]:
     """
-    Rerank các candidate chunks bằng cross-encoder.
-
-    Cross-encoder: chấm lại "chunk nào thực sự trả lời câu hỏi này?"
-    MMR (Maximal Marginal Relevance): giữ relevance nhưng giảm trùng lặp
-
-    Funnel logic (từ slide):
-      Search rộng (top-20) → Rerank (top-6) → Select (top-3)
-
-    TODO Sprint 3 (nếu chọn rerank):
-    Option A — Cross-encoder:
-        from sentence_transformers import CrossEncoder
-        model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        pairs = [[query, chunk["text"]] for chunk in candidates]
-        scores = model.predict(pairs)
-        ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
-        return [chunk for chunk, _ in ranked[:top_k]]
-
-    Option B — Rerank bằng LLM (đơn giản hơn nhưng tốn token):
-        Gửi list chunks cho LLM, yêu cầu chọn top_k relevant nhất
-
-    Khi nào dùng rerank:
-    - Dense/hybrid trả về nhiều chunk nhưng có noise
-    - Muốn chắc chắn chỉ 3-5 chunk tốt nhất vào prompt
+    Rerank các candidate chunks bằng LLM (Option B).
+    Gửi danh sách chunks cho LLM, yêu cầu chọn top_k relevant nhất.
     """
-    # TODO Sprint 3: Implement rerank
-    # Tạm thời trả về top_k đầu tiên (không rerank)
-    return candidates[:top_k]
+    if not candidates:
+        return []
+
+    # 1. Chuẩn bị context cho LLM để rerank
+    candidate_texts = []
+    for i, chunk in enumerate(candidates):
+        # Lấy snippet ngắn để tiết kiệm token nếu cần, nhưng ở đây docs ngắn nên lấy hết
+        text_preview = chunk["text"][:500].replace("\n", " ")
+        candidate_texts.append(f"ID: {i} | Content: {text_preview}")
+
+    candidates_block = "\n".join(candidate_texts)
+
+    # 2. Tạo prompt rerank
+    prompt = f"""You are an expert search reranker. Given a user query and a list of document chunks, identify the {top_k} most relevant chunks that can best answer the query.
+
+Query: {query}
+
+Candidates:
+{candidates_block}
+
+Instructions:
+1. Select only the top {top_k} most relevant chunk IDs.
+2. Return ONLY a comma-separated list of IDs in order of relevance, for example: "2, 0, 5".
+3. Do not include any other text or explanation.
+"""
+
+    # 3. Gọi LLM
+    try:
+        response = call_llm(prompt).strip()
+        # Parse IDs from response (e.g., "2, 0, 1")
+        import re
+        selected_ids = [int(id_.strip()) for id_ in re.split(r'[,\s]+', response) if id_.strip().isdigit()]
+
+        # 4. Trả về list chunks tương ứng
+        ranked_candidates = []
+        seen_ids = set()
+        for idx in selected_ids:
+            if 0 <= idx < len(candidates) and idx not in seen_ids:
+                ranked_candidates.append(candidates[idx])
+                seen_ids.add(idx)
+
+        # Fallback nếu kết quả parsing rỗng
+        if not ranked_candidates:
+            if "verbose" in locals() and locals()["verbose"]: print("[Rerank] LLM parsing failed or empty, using baseline top-k.")
+            return candidates[:top_k]
+
+        return ranked_candidates[:top_k]
+
+    except Exception as e:
+        print(f"Lỗi khi rerank bằng LLM: {e}")
+        return candidates[:top_k]
 
 
 # =============================================================================
@@ -471,27 +504,30 @@ def rag_answer(
 def compare_retrieval_strategies(query: str) -> None:
     """
     So sánh các retrieval strategies với cùng một query.
-
-    TODO Sprint 3:
-    Chạy hàm này để thấy sự khác biệt giữa dense, sparse, hybrid.
-    Dùng để justify tại sao chọn variant đó cho Sprint 3.
-
-    A/B Rule (từ slide): Chỉ đổi MỘT biến mỗi lần.
     """
     print(f"\n{'='*60}")
     print(f"Query: {query}")
     print('='*60)
 
-    strategies = ["dense","sparse", "hybrid"]  # Thêm "sparse" sau khi implement
+    # Các bộ cấu hình để thử nghiệm
+    configs = [
+        {"name": "dense", "mode": "dense", "rerank": False},
+        {"name": "sparse", "mode": "sparse", "rerank": False},
+        {"name": "hybrid", "mode": "hybrid", "rerank": False},
+        {"name": "hybrid + rerank", "mode": "hybrid", "rerank": True},
+    ]
 
-    for strategy in strategies:
-        print(f"\n--- Strategy: {strategy} ---")
+    for cfg in configs:
+        print(f"\n--- Strategy: {cfg['name']} ---")
         try:
-            result = rag_answer(query, retrieval_mode=strategy, verbose=False)
+            result = rag_answer(
+                query, 
+                retrieval_mode=cfg["mode"], 
+                use_rerank=cfg["rerank"],
+                verbose=False
+            )
             print(f"Answer: {result['answer']}")
             print(f"Sources: {result['sources']}")
-        except NotImplementedError as e:
-            print(f"Chưa implement: {e}")
         except Exception as e:
             print(f"Lỗi: {e}")
 
@@ -526,8 +562,8 @@ if __name__ == "__main__":
             print(f"Lỗi: {e}")
 
     # Uncomment sau khi Sprint 3 hoàn thành:
-    print("\n--- Sprint 3: So sánh strategies ---")
-    compare_retrieval_strategies("Approval Matrix để cấp quyền là tài liệu nào?")
+    print("\n--- Sprint 3: So sánh strategies (bao gồm Rerank) ---")
+    compare_retrieval_strategies("Quy trình phê duyệt cấp quyền Level 3?")
     compare_retrieval_strategies("ERR-403-AUTH")
 
     print("\n\nViệc cần làm Sprint 2:")
