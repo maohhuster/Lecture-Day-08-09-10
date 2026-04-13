@@ -7,16 +7,16 @@
 
 ## Baseline (Sprint 2)
 
-**Ngày:** ___________  
+**Ngày:** 2026-04-13  
 **Config:**
 ```
 retrieval_mode = "dense"
-chunk_size = _____ tokens
-overlap = _____ tokens
+chunk_size = 400 tokens
+overlap = 80 tokens
 top_k_search = 10
 top_k_select = 3
 use_rerank = False
-llm_model = _____
+llm_model = gpt-4o-mini
 ```
 
 **Scorecard Baseline:**
@@ -28,13 +28,13 @@ llm_model = _____
 | Completeness | ? /5 |
 
 **Câu hỏi yếu nhất (điểm thấp):**
-> TODO: Liệt kê 2-3 câu hỏi có điểm thấp nhất và lý do tại sao.
-> Ví dụ: "q07 (Approval Matrix) - context recall = 1/5 vì dense bỏ lỡ alias."
+> - "ERR-403-AUTH là lỗi gì?" — Dense trả về "Tôi không biết" dù context có liên quan trong access_control_sop. Dense search theo semantic similarity bỏ lỡ mã lỗi exact match.
+> - "Approval Matrix để cấp quyền" — Dense tìm đúng source nhưng thiếu keyword matching cho tên riêng/alias.
 
 **Giả thuyết nguyên nhân (Error Tree):**
 - [ ] Indexing: Chunking cắt giữa điều khoản
 - [ ] Indexing: Metadata thiếu effective_date
-- [ ] Retrieval: Dense bỏ lỡ exact keyword / alias
+- [x] Retrieval: Dense bỏ lỡ exact keyword / alias → query "ERR-403-AUTH" không match semantic embedding
 - [ ] Retrieval: Top-k quá ít → thiếu evidence
 - [ ] Generation: Prompt không đủ grounding
 - [ ] Generation: Context quá dài → lost in the middle
@@ -43,17 +43,23 @@ llm_model = _____
 
 ## Variant 1 (Sprint 3)
 
-**Ngày:** ___________  
-**Biến thay đổi:** ___________  
+**Ngày:** 2026-04-13  
+**Biến thay đổi:** retrieval_mode = "hybrid" (Dense + BM25 với Reciprocal Rank Fusion)  
 **Lý do chọn biến này:**
-> TODO: Giải thích theo evidence từ baseline results.
-> Ví dụ: "Chọn hybrid vì q07 (alias query) và q09 (mã lỗi ERR-403) đều thất bại với dense.
-> Corpus có cả ngôn ngữ tự nhiên (policy) lẫn tên riêng/mã lỗi (ticket code, SLA label)."
+> Chọn hybrid vì baseline dense thất bại ở 2 loại query:
+> 1. Query chứa mã lỗi exact ("ERR-403-AUTH") — dense trả về "Tôi không biết" vì embedding không capture được exact term.
+> 2. Query chứa tên riêng/alias ("Approval Matrix") — dense tìm đúng source nhưng BM25 bổ sung keyword matching chính xác hơn.
+> Corpus lab có cả ngôn ngữ tự nhiên (policy refund, HR leave) lẫn tên riêng/mã lỗi (SLA P1, ERR-403, Level 3) → hybrid kết hợp semantic (dense) + keyword (BM25 sparse) qua RRF fusion là phù hợp nhất.
 
 **Config thay đổi:**
 ```
-retrieval_mode = "hybrid"   # hoặc biến khác
-# Các tham số còn lại giữ nguyên như baseline
+retrieval_mode = "hybrid"
+dense_weight = 0.6
+sparse_weight = 0.4
+top_k_search = 10
+top_k_select = 3
+use_rerank = False
+llm_model = gpt-4o-mini
 ```
 
 **Scorecard Variant 1:**
@@ -65,12 +71,17 @@ retrieval_mode = "hybrid"   # hoặc biến khác
 | Completeness | ?/5 | ?/5 | +/- |
 
 **Nhận xét:**
-> TODO: Variant 1 cải thiện ở câu nào? Tại sao?
-> Có câu nào kém hơn không? Tại sao?
+> - "ERR-403-AUTH": Cải thiện rõ rệt. Dense abstain ("Tôi không biết"), hybrid trả lời được nhờ BM25 match exact keyword "ERR-403" trong access_control_sop.
+> - "Approval Matrix để cấp quyền": Cả 3 strategy đều tìm đúng source, nhưng hybrid + sparse cho citation đầy đủ hơn ([1][2][3] vs chỉ [2]).
+> - "SLA xử lý ticket P1": Cả dense lẫn hybrid đều trả lời đúng (4 giờ), không có regression.
+> - Không có câu nào hybrid kém hơn dense trong test set này.
 
 **Kết luận:**
-> TODO: Variant 1 có tốt hơn baseline không?
-> Bằng chứng là gì? (điểm số, câu hỏi cụ thể)
+> Hybrid tốt hơn baseline dense. Bằng chứng:
+> 1. Query exact keyword ("ERR-403-AUTH"): dense abstain → hybrid trả lời đúng source.
+> 2. Query alias ("Approval Matrix"): hybrid cho citation phong phú hơn.
+> 3. Không có regression trên các query semantic thông thường (SLA P1, hoàn tiền, cấp quyền).
+> RRF fusion (dense_weight=0.6, sparse_weight=0.4) giữ ưu tiên semantic nhưng bổ sung keyword matching khi cần.
 
 ---
 
