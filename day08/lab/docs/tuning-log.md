@@ -104,3 +104,30 @@ retrieval_mode = "hybrid"   # hoặc biến khác
 
 3. **Nếu có thêm 1 giờ, nhóm sẽ thử gì tiếp theo?**
    > _____________
+--- Strategy: dense ---
+Answer: Approval Matrix để cấp quyền là tài liệu quy định quy trình cấp phép truy cập vào các hệ thống nội bộ của công ty, áp dụng cho tất cả nhân viên, contractor, và third-party vendor [2].
+Sources: ['it/access-control-sop.md']
+
+--- Strategy: sparse ---
+Answer: Approval Matrix để cấp quyền là tài liệu quy định quy trình cấp phép truy cập vào các hệ thống nội bộ của công ty [1].
+Sources: ['support/helpdesk-faq.md', 'it/access-control-sop.md']
+
+--- Strategy: hybrid ---
+Answer: Approval Matrix để cấp quyền là tài liệu quy định quy trình cấp phép truy cập vào các hệ thống nội bộ của công ty [1].
+Sources: ['it/access-control-sop.md']
+
+============================================================
+Query: ERR-403-AUTH
+============================================================
+
+--- Strategy: dense ---
+Answer: Tôi không biết.
+Sources: ['it/access-control-sop.md']
+
+--- Strategy: sparse ---
+Answer: ERR-403-AUTH có thể liên quan đến việc không có quyền truy cập cần thiết. Để được cấp quyền, nhân viên cần tạo một Access Request ticket trên Jira và tuân theo quy trình phê duyệt [3].
+Sources: ['it/access-control-sop.md']
+
+--- Strategy: hybrid ---
+Answer: ERR-403-AUTH có thể liên quan đến việc không có quyền truy cập vào các hệ thống nội bộ của công ty. Quy trình cấp quyền truy cập được quy định trong tài liệu, bao gồm việc tạo yêu cầu trên Jira và phê duyệt bởi Line Manager [1][2].
+Sources: ['it/access-control-sop.md']

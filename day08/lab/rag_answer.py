@@ -98,10 +98,38 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
         scores = bm25.get_scores(tokenized_query)
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
     """
-    # TODO Sprint 3: Implement BM25 search
-    # Tạm thời return empty list
-    print("[retrieve_sparse] Chưa implement — Sprint 3")
-    return []
+    import chromadb
+    from rank_bm25 import BM25Okapi
+    from index import CHROMA_DB_DIR
+
+    client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
+    collection = client.get_collection("rag_lab")
+
+    # Load tất cả chunks từ ChromaDB
+    all_data = collection.get(include=["documents", "metadatas"])
+    if not all_data or not all_data.get("documents"):
+        return []
+
+    documents = all_data["documents"]
+    metadatas = all_data["metadatas"]
+
+    # Tokenize corpus và query
+    tokenized_corpus = [doc.lower().split() for doc in documents]
+    bm25 = BM25Okapi(tokenized_corpus)
+    tokenized_query = query.lower().split()
+    scores = bm25.get_scores(tokenized_query)
+
+    # Lấy top_k indices theo score giảm dần
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    chunks = []
+    for idx in top_indices:
+        chunks.append({
+            "text": documents[idx],
+            "metadata": metadatas[idx],
+            "score": float(scores[idx]),
+        })
+    return chunks
 
 
 # =============================================================================
@@ -137,10 +165,35 @@ def retrieve_hybrid(
     - Corpus có cả câu tự nhiên VÀ tên riêng, mã lỗi, điều khoản
     - Query như "Approval Matrix" khi doc đổi tên thành "Access Control SOP"
     """
-    # TODO Sprint 3: Implement hybrid RRF
-    # Tạm thời fallback về dense
-    print("[retrieve_hybrid] Chưa implement RRF — fallback về dense")
-    return retrieve_dense(query, top_k)
+    # Bước 1: Lấy kết quả từ dense và sparse
+    dense_results = retrieve_dense(query, top_k=top_k)
+    sparse_results = retrieve_sparse(query, top_k=top_k)
+
+    # Bước 2: Tính RRF score cho mỗi chunk
+    # Dùng text làm key để merge
+    rrf_scores = {}  # key: text -> {"score": float, "chunk": dict}
+
+    for rank, chunk in enumerate(dense_results):
+        key = chunk["text"]
+        rrf = dense_weight * (1.0 / (60 + rank))
+        if key not in rrf_scores:
+            rrf_scores[key] = {"score": 0.0, "chunk": chunk}
+        rrf_scores[key]["score"] += rrf
+
+    for rank, chunk in enumerate(sparse_results):
+        key = chunk["text"]
+        rrf = sparse_weight * (1.0 / (60 + rank))
+        if key not in rrf_scores:
+            rrf_scores[key] = {"score": 0.0, "chunk": chunk}
+        rrf_scores[key]["score"] += rrf
+
+    # Bước 3: Sort theo RRF score giảm dần, trả về top_k
+    merged = sorted(rrf_scores.values(), key=lambda x: x["score"], reverse=True)[:top_k]
+
+    return [
+        {**item["chunk"], "score": item["score"]}
+        for item in merged
+    ]
 
 
 # =============================================================================
@@ -429,7 +482,7 @@ def compare_retrieval_strategies(query: str) -> None:
     print(f"Query: {query}")
     print('='*60)
 
-    strategies = ["dense", "hybrid"]  # Thêm "sparse" sau khi implement
+    strategies = ["dense","sparse", "hybrid"]  # Thêm "sparse" sau khi implement
 
     for strategy in strategies:
         print(f"\n--- Strategy: {strategy} ---")
@@ -473,9 +526,9 @@ if __name__ == "__main__":
             print(f"Lỗi: {e}")
 
     # Uncomment sau khi Sprint 3 hoàn thành:
-    # print("\n--- Sprint 3: So sánh strategies ---")
-    # compare_retrieval_strategies("Approval Matrix để cấp quyền là tài liệu nào?")
-    # compare_retrieval_strategies("ERR-403-AUTH")
+    print("\n--- Sprint 3: So sánh strategies ---")
+    compare_retrieval_strategies("Approval Matrix để cấp quyền là tài liệu nào?")
+    compare_retrieval_strategies("ERR-403-AUTH")
 
     print("\n\nViệc cần làm Sprint 2:")
     print("  1. Implement retrieve_dense() — query ChromaDB")

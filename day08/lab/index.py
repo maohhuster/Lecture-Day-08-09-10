@@ -225,7 +225,7 @@ def get_embedding(text: str) -> List[float]:
     Tạo embedding vector cho một đoạn text.
     Sử dụng SentenceTransformers local cho data tiếng Việt.
     """
-    from sentence_transformers import SentenceTransformer
+    # from sentence_transformers import SentenceTransformer
     import os
     
     provider = os.getenv("EMBEDDING_PROVIDER", "local").lower()
@@ -238,12 +238,12 @@ def get_embedding(text: str) -> List[float]:
             model="text-embedding-3-small"
         )
         return response.data[0].embedding
-    else:
-        # Sử dụng local embedding mặc định (tốt cho tiếng Việt)
-        if not hasattr(get_embedding, "local_model"):
-            get_embedding.local_model = SentenceTransformer(os.getenv("LOCAL_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2"))
+    # else:
+    #     # Sử dụng local embedding mặc định (tốt cho tiếng Việt)
+    #     if not hasattr(get_embedding, "local_model"):
+    #         get_embedding.local_model = SentenceTransformer(os.getenv("LOCAL_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2"))
         
-        return get_embedding.local_model.encode(text).tolist()
+    #     return get_embedding.local_model.encode(text).tolist()
 
 
 def build_index(docs_dir: Path = DOCS_DIR, db_dir: Path = CHROMA_DB_DIR) -> None:
