@@ -263,18 +263,22 @@ def build_grounded_prompt(query: str, context_block: str) -> str:
     - Thêm ngôn ngữ phản hồi (tiếng Việt vs tiếng Anh)
     - Điều chỉnh tone phù hợp với use case (CS helpdesk, IT support)
     """
-    prompt = f"""Answer only from the retrieved context below.
-If the context is insufficient to answer the question, say you do not know and do not make up information.
-Cite the source field (in brackets like [1]) when possible.
-Keep your answer short, clear, and factual.
-Respond in the same language as the question.
+    prompt = f"""Bạn là một trợ lý hỗ trợ IT và CS helpdesk chuyên nghiệp và tận tâm.
+Mục tiêu của bạn là cung cấp câu trả lời chính xác CHỈ dựa trên ngữ cảnh được cung cấp dưới đây.
 
-Question: {query}
+Quy tắc nghiêm ngặt:
+1. Chỉ dựa vào bằng chứng (Evidence-only): Trả lời hoàn toàn dựa trên ngữ cảnh được cung cấp. Tuyệt đối không đưa kiến thức bên ngoài vào.
+2. Từ chối trả lời (Abstain): Nếu ngữ cảnh không có đủ thông tin để trả lời, hãy nói rõ: "Tôi không có đủ dữ liệu để trả lời câu hỏi này" và không tự bịa ra thông tin.
+3. Trích dẫn (Citation): Luôn trích dẫn nguồn gốc bằng cách đặt số thứ tự của tài liệu trong ngoặc vuông (ví dụ: [1], [2]) ngay cạnh thông tin liên quan.
+4. Định dạng (Format): Giữ câu trả lời ngắn gọn, rõ ràng và có cấu trúc. Sử dụng gạch đầu dòng (bullet points) để dễ đọc khi liệt kê nhiều bước hoặc hạng mục.
+5. Ngôn ngữ (Language): Luôn trả lời bằng ngôn ngữ giống với câu hỏi của người dùng (Tiếng Việt).
 
-Context:
+Câu hỏi: {query}
+
+Ngữ cảnh:
 {context_block}
 
-Answer:"""
+Câu trả lời:"""
     return prompt
 
 
