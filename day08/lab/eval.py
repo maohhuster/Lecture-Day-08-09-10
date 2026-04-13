@@ -22,7 +22,7 @@ import csv
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from rag_answer import rag_answer
+from rag_answer import rag_answer, call_llm
 
 # =============================================================================
 # CẤU HÌNH
@@ -88,12 +88,33 @@ def score_faithfulness(
 
     Trả về dict với: score (1-5) và notes (lý do)
     """
-    # TODO Sprint 4: Implement scoring
-    # Tạm thời trả về None (yêu cầu chấm thủ công)
-    return {
-        "score": None,
-        "notes": "TODO: Chấm thủ công hoặc implement LLM-as-Judge",
-    }
+    if not answer or not chunks_used:
+        return {"score": 1, "notes": "No answer or context provided."}
+
+    context_block = "\n\n".join([f"[{i+1}] {c['text']}" for i, c in enumerate(chunks_used)])
+    
+    prompt = f"""You are a strict technical judge. Evaluate the FAITHFULNESS of the answer based ONLY on the provided context.
+    
+Context:
+{context_block}
+
+Answer:
+{answer}
+
+Rules:
+1. Is every claim in the answer supported by the context?
+2. Did the model hallucinate any information (e.g., dates, names, terms) not in the context?
+3. If the answer says "I don't know" correctly because context is missing, that is 5/5 faithfulness.
+
+Output ONLY a JSON object: {{"score": <1-5>, "reason": "<short explanation>"}}
+"""
+    try:
+        response = call_llm(prompt)
+        import json as json_lib
+        res = json_lib.loads(response[response.find('{'):response.rfind('}')+1])
+        return {"score": res.get("score", 3), "notes": res.get("reason", "")}
+    except Exception as e:
+        return {"score": None, "notes": f"Error calling judge: {e}"}
 
 
 def score_answer_relevance(
@@ -110,13 +131,26 @@ def score_answer_relevance(
       3: Trả lời có liên quan nhưng chưa đúng trọng tâm
       2: Trả lời lạc đề một phần
       1: Không trả lời câu hỏi
-
-    TODO Sprint 4: Implement tương tự score_faithfulness
     """
-    return {
-        "score": None,
-        "notes": "TODO: Implement score_answer_relevance",
-    }
+    prompt = f"""Evaluate the RELEVANCE of the answer to the user query.
+    
+Query: {query}
+Answer: {answer}
+
+Rules:
+1. Does the answer directly address the user's question?
+2. Is the answer concise and helpful?
+3. If the answer is "I don't know" when context was indeed missing, it is 5/5 for being honest and relevant to the context state.
+
+Output ONLY a JSON object: {{"score": <1-5>, "reason": "<short explanation>"}}
+"""
+    try:
+        response = call_llm(prompt)
+        import json as json_lib
+        res = json_lib.loads(response[response.find('{'):response.rfind('}')+1])
+        return {"score": res.get("score", 3), "notes": res.get("reason", "")}
+    except Exception as e:
+        return {"score": None, "notes": f"Error calling judge: {e}"}
 
 
 def score_context_recall(
@@ -190,18 +224,25 @@ def score_completeness(
       3: Thiếu một số thông tin quan trọng
       2: Thiếu nhiều thông tin quan trọng
       1: Thiếu phần lớn nội dung cốt lõi
-
-    TODO Sprint 4:
-    Option 1 — Chấm thủ công: So sánh answer vs expected_answer và chấm.
-    Option 2 — LLM-as-Judge:
-        "Compare the model answer with the expected answer.
-         Rate completeness 1-5. Are all key points covered?
-         Output: {'score': int, 'missing_points': [str]}"
     """
-    return {
-        "score": None,
-        "notes": "TODO: Implement score_completeness (so sánh với expected_answer)",
-    }
+    prompt = f"""Compare the generated answer with the expected ground truth answer.
+    
+Expected Answer: {expected_answer}
+Generated Answer: {answer}
+
+Rules:
+1. Does the generated answer cover all the key facts/steps present in the expected answer?
+2. Scale 1-5: 5 = Perfect coverage, 1 = Completely missed the point.
+
+Output ONLY a JSON object: {{"score": <1-5>, "reason": "<short explanation>"}}
+"""
+    try:
+        response = call_llm(prompt)
+        import json as json_lib
+        res = json_lib.loads(response[response.find('{'):response.rfind('}')+1])
+        return {"score": res.get("score", 3), "notes": res.get("reason", "")}
+    except Exception as e:
+        return {"score": None, "notes": f"Error calling judge: {e}"}
 
 
 # =============================================================================
@@ -487,29 +528,29 @@ if __name__ == "__main__":
         baseline_results = []
 
     # --- Chạy Variant (sau khi Sprint 3 hoàn thành) ---
-    # TODO Sprint 4: Uncomment sau khi implement variant trong rag_answer.py
-    # print("\n--- Chạy Variant ---")
-    # variant_results = run_scorecard(
-    #     config=VARIANT_CONFIG,
-    #     test_questions=test_questions,
-    #     verbose=True,
-    # )
-    # variant_md = generate_scorecard_summary(variant_results, VARIANT_CONFIG["label"])
-    # (RESULTS_DIR / "scorecard_variant.md").write_text(variant_md, encoding="utf-8")
+    print("\n--- Chạy Variant ---")
+    try:
+        variant_results = run_scorecard(
+            config=VARIANT_CONFIG,
+            test_questions=test_questions,
+            verbose=True,
+        )
+        variant_md = generate_scorecard_summary(variant_results, VARIANT_CONFIG["label"])
+        (RESULTS_DIR / "scorecard_variant.md").write_text(variant_md, encoding="utf-8")
+        print(f"\nScorecard variant lưu tại: {RESULTS_DIR / 'scorecard_variant.md'}")
 
-    # --- A/B Comparison ---
-    # TODO Sprint 4: Uncomment sau khi có cả baseline và variant
-    # if baseline_results and variant_results:
-    #     compare_ab(
-    #         baseline_results,
-    #         variant_results,
-    #         output_csv="ab_comparison.csv"
-    #     )
+        # --- A/B Comparison ---
+        if baseline_results and variant_results:
+            compare_ab(
+                baseline_results,
+                variant_results,
+                output_csv="ab_comparison.csv"
+            )
+    except Exception as e:
+        print(f"Lỗi khi chạy variant: {e}")
 
     print("\n\nViệc cần làm Sprint 4:")
     print("  1. Hoàn thành Sprint 2 + 3 trước")
     print("  2. Chấm điểm thủ công hoặc implement LLM-as-Judge trong score_* functions")
-    print("  3. Chạy run_scorecard(BASELINE_CONFIG)")
-    print("  4. Chạy run_scorecard(VARIANT_CONFIG)")
     print("  5. Gọi compare_ab() để thấy delta")
     print("  6. Cập nhật docs/tuning-log.md với kết quả và nhận xét")

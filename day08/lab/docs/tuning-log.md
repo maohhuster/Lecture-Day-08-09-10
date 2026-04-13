@@ -22,10 +22,10 @@ llm_model = gpt-4o-mini
 **Scorecard Baseline:**
 | Metric | Average Score |
 |--------|--------------|
-| Faithfulness | ? /5 |
-| Answer Relevance | ? /5 |
-| Context Recall | ? /5 |
-| Completeness | ? /5 |
+| Faithfulness | 4.70 /5 |
+| Answer Relevance | 5.00 /5 |
+| Context Recall | 5.00 /5 |
+| Completeness | 3.60 /5 |
 
 **Câu hỏi yếu nhất (điểm thấp):**
 > - "ERR-403-AUTH là lỗi gì?" — Dense trả về "Tôi không biết" dù context có liên quan trong access_control_sop. Dense search theo semantic similarity bỏ lỡ mã lỗi exact match.

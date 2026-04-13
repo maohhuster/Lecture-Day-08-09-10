@@ -27,12 +27,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Sửa lỗi hiển thị tiếng Việt trên Windows Console
-import sys
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
 # =============================================================================
 # CẤU HÌNH
 # =============================================================================
