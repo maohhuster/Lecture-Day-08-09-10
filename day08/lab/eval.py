@@ -40,13 +40,21 @@ BASELINE_CONFIG = {
     "label": "baseline_dense",
 }
 
-# Cấu hình variant (Sprint 3 — điều chỉnh theo lựa chọn của nhóm)
-# TODO Sprint 4: Cập nhật VARIANT_CONFIG theo variant nhóm đã implement
-VARIANT_CONFIG = {
-    "retrieval_mode": "hybrid",   # Hoặc "dense" nếu chỉ đổi rerank
+# Variant 1: Hybrid (dense + BM25) không rerank
+VARIANT1_CONFIG = {
+    "retrieval_mode": "hybrid",
     "top_k_search": 10,
     "top_k_select": 3,
-    "use_rerank": True,           # Hoặc False nếu variant là hybrid không rerank
+    "use_rerank": False,
+    "label": "variant_hybrid",
+}
+
+# Variant 2: Hybrid + LLM rerank
+VARIANT2_CONFIG = {
+    "retrieval_mode": "hybrid",
+    "top_k_search": 10,
+    "top_k_select": 3,
+    "use_rerank": True,
     "label": "variant_hybrid_rerank",
 }
 
@@ -527,30 +535,44 @@ if __name__ == "__main__":
         print("Pipeline chưa implement. Hoàn thành Sprint 2 trước.")
         baseline_results = []
 
-    # --- Chạy Variant (sau khi Sprint 3 hoàn thành) ---
-    print("\n--- Chạy Variant ---")
+    # --- Chạy Variant 1: Hybrid (không rerank) ---
+    print("\n--- Chạy Variant 1: Hybrid ---")
+    variant1_results = []
     try:
-        variant_results = run_scorecard(
-            config=VARIANT_CONFIG,
+        variant1_results = run_scorecard(
+            config=VARIANT1_CONFIG,
             test_questions=test_questions,
             verbose=True,
         )
-        variant_md = generate_scorecard_summary(variant_results, VARIANT_CONFIG["label"])
-        (RESULTS_DIR / "scorecard_variant.md").write_text(variant_md, encoding="utf-8")
-        print(f"\nScorecard variant lưu tại: {RESULTS_DIR / 'scorecard_variant.md'}")
+        variant1_md = generate_scorecard_summary(variant1_results, VARIANT1_CONFIG["label"])
+        (RESULTS_DIR / "scorecard_variant_hybrid.md").write_text(variant1_md, encoding="utf-8")
+        print(f"\nScorecard variant 1 lưu tại: {RESULTS_DIR / 'scorecard_variant_hybrid.md'}")
 
-        # --- A/B Comparison ---
-        if baseline_results and variant_results:
-            compare_ab(
-                baseline_results,
-                variant_results,
-                output_csv="ab_comparison.csv"
-            )
+        if baseline_results and variant1_results:
+            print("\n--- A/B: Baseline vs Hybrid ---")
+            compare_ab(baseline_results, variant1_results, output_csv="ab_baseline_vs_hybrid.csv")
     except Exception as e:
-        print(f"Lỗi khi chạy variant: {e}")
+        print(f"Lỗi khi chạy variant 1: {e}")
 
-    print("\n\nViệc cần làm Sprint 4:")
-    print("  1. Hoàn thành Sprint 2 + 3 trước")
-    print("  2. Chấm điểm thủ công hoặc implement LLM-as-Judge trong score_* functions")
-    print("  5. Gọi compare_ab() để thấy delta")
-    print("  6. Cập nhật docs/tuning-log.md với kết quả và nhận xét")
+    # --- Chạy Variant 2: Hybrid + Rerank ---
+    print("\n--- Chạy Variant 2: Hybrid + Rerank ---")
+    variant2_results = []
+    try:
+        variant2_results = run_scorecard(
+            config=VARIANT2_CONFIG,
+            test_questions=test_questions,
+            verbose=True,
+        )
+        variant2_md = generate_scorecard_summary(variant2_results, VARIANT2_CONFIG["label"])
+        (RESULTS_DIR / "scorecard_variant_hybrid_rerank.md").write_text(variant2_md, encoding="utf-8")
+        print(f"\nScorecard variant 2 lưu tại: {RESULTS_DIR / 'scorecard_variant_hybrid_rerank.md'}")
+
+        if baseline_results and variant2_results:
+            print("\n--- A/B: Baseline vs Hybrid+Rerank ---")
+            compare_ab(baseline_results, variant2_results, output_csv="ab_baseline_vs_hybrid_rerank.csv")
+
+        if variant1_results and variant2_results:
+            print("\n--- A/B: Hybrid vs Hybrid+Rerank ---")
+            compare_ab(variant1_results, variant2_results, output_csv="ab_hybrid_vs_hybrid_rerank.csv")
+    except Exception as e:
+        print(f"Lỗi khi chạy variant 2: {e}")

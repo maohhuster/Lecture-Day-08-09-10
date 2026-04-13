@@ -25,7 +25,7 @@ llm_model = gpt-4o-mini
 | Faithfulness | 4.70 /5 |
 | Answer Relevance | 5.00 /5 |
 | Context Recall | 5.00 /5 |
-| Completeness | 3.60 /5 |
+| Completeness | 3.80 /5 |
 
 **Câu hỏi yếu nhất (điểm thấp):**
 > - "ERR-403-AUTH là lỗi gì?" — Dense trả về "Tôi không biết" dù context có liên quan trong access_control_sop. Dense search theo semantic similarity bỏ lỡ mã lỗi exact match.
@@ -65,10 +65,10 @@ llm_model = gpt-4o-mini
 **Scorecard Variant 1:**
 | Metric | Baseline | Variant 1 | Delta |
 |--------|----------|-----------|-------|
-| Faithfulness | ?/5 | ?/5 | +/- |
-| Answer Relevance | ?/5 | ?/5 | +/- |
-| Context Recall | ?/5 | ?/5 | +/- |
-| Completeness | ?/5 | ?/5 | +/- |
+| Faithfulness | 4.70/5 | 4.80/5 | +0.10 |
+| Answer Relevance | 5.00/5 | 4.60/5 | -0.40 |
+| Context Recall | 5.00/5 | 5.00/5 | 0.00 |
+| Completeness | 3.80/5 | 3.20/5 | -0.60 |
 
 **Nhận xét:**
 > - "ERR-403-AUTH": Cải thiện rõ rệt. Dense abstain ("Tôi không biết"), hybrid trả lời được nhờ BM25 match exact keyword "ERR-403" trong access_control_sop.
@@ -87,34 +87,44 @@ llm_model = gpt-4o-mini
 
 ## Variant 2 (nếu có thời gian)
 
-**Biến thay đổi:** ___________  
+**Biến thay đổi:** use_rerank = True (LLM-as-Judge rerank) trên hybrid retrieval  
 **Config:**
 ```
-# TODO
+retrieval_mode = "hybrid"
+dense_weight = 0.6
+sparse_weight = 0.4
+top_k_search = 10
+top_k_select = 3
+use_rerank = True
+llm_model = gpt-4o-mini
 ```
 
 **Scorecard Variant 2:**
-| Metric | Baseline | Variant 1 | Variant 2 | Best |
+| Metric | Baseline | Variant 1 (hybrid) | Variant 2 (hybrid+rerank) | Best |
 |--------|----------|-----------|-----------|------|
-| Faithfulness | ? | ? | ? | ? |
-| Answer Relevance | ? | ? | ? | ? |
-| Context Recall | ? | ? | ? | ? |
-| Completeness | ? | ? | ? | ? |
+| Faithfulness | 4.70 | 4.80 | 4.90 | Variant 2 |
+| Answer Relevance | 5.00 | 4.60 | 4.60 | Baseline |
+| Context Recall | 5.00 | 5.00 | 5.00 | Tie |
+| Completeness | 3.80 | 3.20 | 3.60 | Baseline |
+
+**Nhận xét Variant 2:**
+> - Rerank cải thiện Faithfulness (+0.10 so với hybrid thuần) và Completeness (+0.40 so với hybrid thuần).
+> - q09 (ERR-403-AUTH): cả hybrid lẫn hybrid+rerank đều abstain (R=1, C=1), không có sự khác biệt.
+> - q06 (escalation SLA): rerank giúp Completeness tăng từ 1→3, chọn chunk chính xác hơn.
+> - Rerank tốn thêm 1 lần gọi LLM mỗi query nhưng giúp lọc chunk tốt hơn khi hybrid trả về noise.
 
 ---
 
 ## Tóm tắt học được
 
-> TODO (Sprint 4): Điền sau khi hoàn thành evaluation.
-
 1. **Lỗi phổ biến nhất trong pipeline này là gì?**
-   > _____________
+   > Dense retrieval bỏ lỡ exact keyword/mã lỗi (ERR-403-AUTH). Hybrid khắc phục được nhờ BM25 bổ sung keyword matching.
 
 2. **Biến nào có tác động lớn nhất tới chất lượng?**
-   > _____________
+   > retrieval_mode: chuyển từ dense → hybrid cải thiện Faithfulness (+0.10). Rerank trên hybrid thêm +0.10 Faithfulness và +0.40 Completeness so với hybrid thuần. Tổng thể hybrid+rerank là config tốt nhất cho Faithfulness (4.90).
 
 3. **Nếu có thêm 1 giờ, nhóm sẽ thử gì tiếp theo?**
-   > _____________
+   > Query transformation (expansion) để cải thiện completeness score (3.60/5 ở best config) — nhiều câu answer thiếu chi tiết phụ so với expected. Đặc biệt q09 (ERR-403-AUTH) cả 3 config đều abstain hoặc trả lời kém.
 --- Strategy: dense ---
 Answer: Approval Matrix để cấp quyền là tài liệu quy định quy trình cấp phép truy cập vào các hệ thống nội bộ của công ty, áp dụng cho tất cả nhân viên, contractor, và third-party vendor [2].
 Sources: ['it/access-control-sop.md']

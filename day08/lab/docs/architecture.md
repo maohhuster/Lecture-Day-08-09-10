@@ -1,8 +1,5 @@
 # Architecture — RAG Pipeline (Day 08 Lab)
 
-> Template: Điền vào các mục này khi hoàn thành từng sprint.
-> Deliverable của Documentation Owner.
-
 ## 1. Tổng quan kiến trúc
 
 ```
@@ -18,7 +15,7 @@
 ```
 
 **Mô tả ngắn gọn:**
-> TODO: Mô tả hệ thống trong 2-3 câu. Nhóm xây gì? Cho ai dùng? Giải quyết vấn đề gì?
+Hệ thống là một trợ lý nội bộ hỗ trợ khối CS và IT Helpdesk tra cứu quy trình, chính sách công ty. Hệ thống sử dụng kiến trúc RAG (Retrieval-Augmented Generation) để đảm bảo câu trả lời có tính xác thực cao (grounded) và có trích dẫn nguồn (citation).
 
 ---
 
@@ -27,24 +24,26 @@
 ### Tài liệu được index
 | File | Nguồn | Department | Số chunk |
 |------|-------|-----------|---------|
-| `policy_refund_v4.txt` | policy/refund-v4.pdf | CS | TODO |
-| `sla_p1_2026.txt` | support/sla-p1-2026.pdf | IT | TODO |
-| `access_control_sop.txt` | it/access-control-sop.md | IT Security | TODO |
-| `it_helpdesk_faq.txt` | support/helpdesk-faq.md | IT | TODO |
-| `hr_leave_policy.txt` | hr/leave-policy-2026.pdf | HR | TODO |
+| `policy_refund_v4.txt` | policy/refund-v4.pdf | CS | 8 |
+| `sla_p1_2026.txt` | support/sla-p1-2026.pdf | IT | 10 |
+| `access_control_sop.txt` | it/access-control-sop.md | IT Security | 11 |
+| `it_helpdesk_faq.txt` | support/helpdesk-faq.md | IT | 5 |
+| `hr_leave_policy.txt` | hr/leave-policy-2026.pdf | HR | 5 |
+
+*Tổng cộng: 39 chunks.*
 
 ### Quyết định chunking
 | Tham số | Giá trị | Lý do |
 |---------|---------|-------|
-| Chunk size | TODO tokens | TODO |
-| Overlap | TODO tokens | TODO |
-| Chunking strategy | Heading-based / paragraph-based | TODO |
-| Metadata fields | source, section, effective_date, department, access | Phục vụ filter, freshness, citation |
+| Chunk size | 400 characters (~100 tokens) | Phù hợp với các điều khoản chính sách ngắn, súc tích. |
+| Overlap | 80 characters | Duy trì ngữ cảnh giữa các đoạn điều khoản bị cắt ngang. |
+| Chunking strategy | Section-based | Cắt theo heading `=== Section ===` để giữ tính toàn vẹn của một điều mục. |
+| Metadata fields | source, section, effective_date, department, access | Phục vụ filter, freshness, citation. |
 
 ### Embedding model
-- **Model**: TODO (OpenAI text-embedding-3-small / paraphrase-multilingual-MiniLM-L12-v2)
+- **Model**: OpenAI `text-embedding-3-small` (Configurable via ENV)
 - **Vector store**: ChromaDB (PersistentClient)
-- **Similarity metric**: Cosine
+- **Similarity metric**: Cosine Similarity
 
 ---
 
@@ -61,15 +60,13 @@
 ### Variant (Sprint 3)
 | Tham số | Giá trị | Thay đổi so với baseline |
 |---------|---------|------------------------|
-| Strategy | TODO (hybrid / dense) | TODO |
-| Top-k search | TODO | TODO |
-| Top-k select | TODO | TODO |
-| Rerank | TODO (cross-encoder / MMR) | TODO |
-| Query transform | TODO (expansion / HyDE / decomposition) | TODO |
+| Strategy | Hybrid (Dense + Sparse) | Thêm BM25 Keyword Matching qua RRF fusion. |
+| Top-k search | 10 | Giữ nguyên. |
+| Top-k select | 3 | Giữ nguyên. |
+| Rerank | LLM-based Rerank | Thêm bước LLM chọn top 3 relevant nhất từ top 10. |
 
 **Lý do chọn variant này:**
-> TODO: Giải thích tại sao chọn biến này để tune.
-> Ví dụ: "Chọn hybrid vì corpus có cả câu tự nhiên (policy) lẫn mã lỗi và tên chuyên ngành (SLA ticket P1, ERR-403)."
+Corpus có chứa nhiều mã lỗi kỹ thuật (ERR-403) và tên quy trình chính xác (SLA P1). Hybrid giúp bắt đúng keyword, trong khi LLM Reranking giúp chọn đúng semantic context khi có nhiều đoạn văn bản trông tương tự nhau.
 
 ---
 
@@ -88,23 +85,19 @@ Context:
 [1] {source} | {section} | score={score}
 {chunk_text}
 
-[2] ...
-
 Answer:
 ```
 
 ### LLM Configuration
 | Tham số | Giá trị |
 |---------|---------|
-| Model | TODO (gpt-4o-mini / gemini-1.5-flash) |
+| Model | `gpt-4o-mini` / `gemini-2.5-flash` |
 | Temperature | 0 (để output ổn định cho eval) |
 | Max tokens | 512 |
 
 ---
 
 ## 5. Failure Mode Checklist
-
-> Dùng khi debug — kiểm tra lần lượt: index → retrieval → generation
 
 | Failure Mode | Triệu chứng | Cách kiểm tra |
 |-------------|-------------|---------------|
@@ -116,21 +109,19 @@ Answer:
 
 ---
 
-## 6. Diagram (tùy chọn)
-
-> TODO: Vẽ sơ đồ pipeline nếu có thời gian. Có thể dùng Mermaid hoặc drawio.
+## 6. Diagram
 
 ```mermaid
-graph LR
-    A[User Query] --> B[Query Embedding]
-    B --> C[ChromaDB Vector Search]
-    C --> D[Top-10 Candidates]
-    D --> E{Rerank?}
-    E -->|Yes| F[Cross-Encoder]
-    E -->|No| G[Top-3 Select]
-    F --> G
-    G --> H[Build Context Block]
-    H --> I[Grounded Prompt]
-    I --> J[LLM]
-    J --> K[Answer + Citation]
+graph TD
+    A[User Query] --> B{Strategy}
+    B -->|Dense| C[Vector Search]
+    B -->|Sparse| D[BM25 Search]
+    C --> E[RRF Fusion]
+    D --> E
+    E --> F[Top-10 Candidates]
+    F --> G[LLM Reranker]
+    G --> H[Top-3 Selected Chunks]
+    H --> I[Build Grounded Prompt]
+    I --> J[LLM Generation]
+    J --> K[Final Answer with Citations]
 ```
