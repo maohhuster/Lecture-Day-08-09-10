@@ -232,8 +232,15 @@ def save_trace(result: AgentState, output_dir: str = "artifacts/traces") -> str:
     import os
     from datetime import datetime
     os.makedirs(output_dir, exist_ok=True)
-    trace_id = result.get('run_id', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-    filename = f"{trace_id}.json"
+    
+    # Use question_id if available, otherwise use run_id
+    question_id = result.get('question_id', '')
+    if question_id:
+        filename = f"{question_id}__{result.get('run_id', 'trace')}.json"
+    else:
+        trace_id = result.get('run_id', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        filename = f"{trace_id}.json"
+    
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)

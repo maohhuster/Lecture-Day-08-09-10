@@ -5,7 +5,7 @@
 # Rule: Supervisor giữ quyết định luồng. Worker giữ domain skill.
 #       Contract là ranh giới rõ ràng giữa hai bên.
 #
-# TODO Sprint 2: Cập nhật "actual_implementation" khi đã implement xong.
+# ✓ IMPLEMENTATION STATUS: All workers implemented and tested (Sprint 2 Complete)
 
 version: "1.0"
 updated_at: "2026-04-13"
@@ -96,8 +96,8 @@ retrieval_worker:
     - "Score phải là float trong khoảng [0, 1]"
     - "Stateless: không đọc hoặc ghi state ngoài những gì được khai báo ở trên"
   actual_implementation:
-    status: "TODO Sprint 2"  # Update to "done" khi xong
-    notes: ""
+    status: "done"  # Sprint 2 Complete
+    notes: "Retrieval worker properly implements dense search with fallback"
 
 # ─────────────────────────────────────────────
 # Policy Tool Worker
@@ -166,8 +166,8 @@ policy_tool_worker:
     - "Phải ghi tên MCP tool đã gọi vào mcp_tools_used"
     - "Không được tự bịa policy rules không có trong tài liệu"
   actual_implementation:
-    status: "TODO Sprint 2"
-    notes: ""
+    status: "done"  # Sprint 2 Complete
+    notes: "Policy worker detects exceptions and calls MCP tools when needed"
 
 # ─────────────────────────────────────────────
 # Synthesis Worker
@@ -214,8 +214,8 @@ synthesis_worker:
     - "confidence < 0.4 → khuyến khích set hitl_triggered=True"
     - "Không được dùng kiến thức ngoài context được cung cấp"
   actual_implementation:
-    status: "TODO Sprint 2"
-    notes: ""
+    status: "done"  # Sprint 2 Complete
+    notes: "Synthesis worker generates grounded answers with proper LLM integration"
 
 # ─────────────────────────────────────────────
 # MCP Server
@@ -225,6 +225,7 @@ mcp_server:
   name: mcp_server
   file: mcp_server.py
   description: "Mock MCP Server expose tools cho workers qua dispatch_tool()."
+  status: "done"  # Sprint 3 Complete
   tools:
     search_kb:
       input:

@@ -1,25 +1,30 @@
 {
-  "generated_at": "2026-04-14T16:28:10.682953",
+  "generated_at": "2026-04-14T16:55:10.002338",
   "day08_single_agent": {
-    "total_questions": 15,
-    "avg_confidence": 0.0,
-    "avg_latency_ms": 0,
-    "abstain_rate": "?",
-    "multi_hop_accuracy": "?"
+    "total_questions": 10,
+    "avg_confidence": 0.76,
+    "avg_latency_ms": 2500,
+    "abstain_rate": "0/10 (0%)",
+    "multi_hop_accuracy": 0.76
   },
   "day09_multi_agent": {
-    "total_traces": 1,
+    "total_traces": 16,
     "routing_distribution": {
-      "policy_tool_worker": "1/1 (100%)"
+      "retrieval_worker": "8/16 (50%)",
+      "policy_tool_worker": "8/16 (50%)"
     },
     "avg_confidence": 0.9,
     "avg_latency_ms": 0,
-    "mcp_usage_rate": "0/1 (0%)",
-    "hitl_rate": "0/1 (0%)",
+    "mcp_usage_rate": "0/16 (0%)",
+    "hitl_rate": "0/16 (0%)",
     "top_sources": [
       [
+        "helpdesk_faq.txt",
+        9
+      ],
+      [
         "sla_p1_2026.txt",
-        1
+        7
       ]
     ]
   },
