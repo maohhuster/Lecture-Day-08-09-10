@@ -181,7 +181,8 @@ Với câu hỏi FAQ đơn giản như gq08 ("đổi mật khẩu sau bao nhiêu
 | Lê Hà An | Supervisor node (`graph.py` — routing logic, HITL condition, AgentState schema), docs `system_architecture.md` | Sprint 1 + 3 |
 | Nguyễn Anh Hào | Retrieval Worker (`workers/retrieval.py`), ChromaDB integration, `docs/routing_decisions.md` | Sprint 1 + 2 |
 | Lê Đức Hải | Policy Tool Worker (`workers/policy_tool.py`), Synthesis Worker (`workers/synthesis.py`), `docs/single_vs_multi_comparison.md` | Sprint 2 |
-| Nguyễn Đức Mạnh (Cường) | MCP Server (`mcp_server.py` — 4 tools), `eval_trace.py`, trace artifacts, group report + docs | Sprint 3 + Trace |
+| Nguyễn Đức Mạnh | `eval_trace.py`, trace artifacts, group report + docs | Trace |
+| Cường | MCP Server (`mcp_server.py` — 4 tools) | Sprint 3 |
 
 **Điều nhóm làm tốt:**
 
