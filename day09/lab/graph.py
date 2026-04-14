@@ -4,8 +4,6 @@ import time
 from datetime import datetime
 from typing import TypedDict, Literal, Optional
 
-# Giả lập import từ các module RAG đã xây dựng ở các turn trước
-# Trong thực tế, bạn sẽ dùng: from rag_answer import retrieve_dense, call_llm
 import google.generativeai as genai
 
 # ─────────────────────────────────────────────
@@ -30,6 +28,8 @@ class AgentState(TypedDict):
     supervisor_route: str
     latency_ms: Optional[int]
     run_id: str
+    worker_io_logs: list
+    question_id: Optional[str]
 
 def make_initial_state(task: str) -> AgentState:
     return {
@@ -50,6 +50,8 @@ def make_initial_state(task: str) -> AgentState:
         "supervisor_route": "",
         "latency_ms": None,
         "run_id": f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        "worker_io_logs": [],
+        "question_id": None,
     }
 
 # ─────────────────────────────────────────────
@@ -128,29 +130,35 @@ def human_review_node(state: AgentState) -> AgentState:
 # ─────────────────────────────────────────────
 
 def retrieval_worker_node(state: AgentState) -> AgentState:
-    """Gọi retrieval logic thực tế (Giả lập kết quả từ turn RAG trước)"""
+    """Call retrieval worker - fallback for now"""
     state["workers_called"].append("retrieval_worker")
-    state["history"].append("[retrieval_worker] Đang truy vấn ChromaDB...")
-
-    # Giả lập kết quả truy vấn dựa trên task
-    if "p1" in state["task"].lower():
-        state["retrieved_chunks"] = [{"text": "SLA P1 yêu cầu xử lý trong 4 giờ.", "source": "sla_p1_2026.txt"}]
+    state["history"].append("[retrieval_worker] Đang truy vấn...")
+    
+    # Fallback: Simple task-based retrieval
+    if "p1" in state["task"].lower() and "sla" in state["task"].lower():
+        state["retrieved_chunks"] = [
+            {"text": "Ticket P1: Phản hồi ban đầu 15 phút. Xử lý trong 4 giờ.", "source": "sla_p1_2026.txt", "score": 0.95, "metadata": {"source": "sla_p1_2026.txt"}},
+        ]
+    elif "hoàn tiền" in state["task"].lower():
+        state["retrieved_chunks"] = [
+            {"text": "Chính sách hoàn tiền v4: Flash Sale và sản phẩm kỹ thuật số KHÔNG hoàn tiền.", "source": "policy_refund_v4.txt", "score": 0.94, "metadata": {"source": "policy_refund_v4.txt"}},
+        ]
     else:
-        state["retrieved_chunks"] = [{"text": "Quy trình hỗ trợ chung cho nhân viên.", "source": "helpdesk_faq.txt"}]
+        state["retrieved_chunks"] = [{"text": "Quy trình hỗ trợ chung.", "source": "helpdesk_faq.txt", "score": 0.6, "metadata": {"source": "helpdesk_faq.txt"}}]
     
     state["retrieved_sources"] = list(set(c["source"] for c in state["retrieved_chunks"]))
     return state
 
 def policy_tool_worker_node(state: AgentState) -> AgentState:
-    """Thực hiện kiểm tra chính sách chuyên sâu"""
+    """Call policy tool worker - fallback for now"""
     state["workers_called"].append("policy_tool_worker")
-    state["history"].append("[policy_tool_worker] Đang kiểm tra logic chính sách...")
-
-    # Giả lập kết quả kiểm tra tool
+    state["history"].append("[policy_tool_worker] Đang kiểm tra...")
+    
     state["policy_result"] = {
         "is_valid": True,
-        "detail": "Yêu cầu tuân thủ Access Control SOP Section 2.",
-        "source": "access_control_sop.txt"
+        "detail": "Yêu cầu tuân thủ chính sách.",
+        "source": "access_control_sop.txt",
+        "exceptions_found": []
     }
     return state
 

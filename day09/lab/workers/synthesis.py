@@ -259,6 +259,12 @@ Hãy trả lời câu hỏi dựa vào tài liệu trên."""
 def run(state: dict) -> dict:
     """
     Worker entry point — gọi từ graph.py.
+    
+    Args:
+        state: AgentState dict
+        
+    Returns:
+        Updated AgentState với final_answer, sources, confidence và worker_io_log
     """
     task = state.get("task", "")
     chunks = state.get("retrieved_chunks", [])
@@ -268,7 +274,7 @@ def run(state: dict) -> dict:
     state.setdefault("history", [])
     state["workers_called"].append(WORKER_NAME)
 
-    worker_io = {
+    worker_io_log = {
         "worker": WORKER_NAME,
         "input": {
             "task": task,
@@ -281,27 +287,30 @@ def run(state: dict) -> dict:
 
     try:
         result = synthesize(task, chunks, policy_result)
+        
+        # ✓ Requirement: Output có `answer`, `sources`, `confidence`
         state["final_answer"] = result["answer"]
         state["sources"] = result["sources"]
         state["confidence"] = result["confidence"]
 
-        worker_io["output"] = {
+        worker_io_log["output"] = {
             "answer_length": len(result["answer"]),
             "sources": result["sources"],
             "confidence": result["confidence"],
         }
+        state["worker_io_log"] = worker_io_log
         state["history"].append(
             f"[{WORKER_NAME}] answer generated, confidence={result['confidence']}, "
             f"sources={result['sources']}"
         )
 
     except Exception as e:
-        worker_io["error"] = {"code": "SYNTHESIS_FAILED", "reason": str(e)}
+        worker_io_log["error"] = {"code": "SYNTHESIS_FAILED", "reason": str(e)}
         state["final_answer"] = f"SYNTHESIS_ERROR: {e}"
         state["confidence"] = 0.0
+        state["worker_io_log"] = worker_io_log
         state["history"].append(f"[{WORKER_NAME}] ERROR: {e}")
 
-    state.setdefault("worker_io_logs", []).append(worker_io)
     return state
 
 

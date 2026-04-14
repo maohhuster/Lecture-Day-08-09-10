@@ -246,7 +246,7 @@ def run(state: dict) -> dict:
         state: AgentState dict
 
     Returns:
-        Updated AgentState với retrieved_chunks và retrieved_sources
+        Updated AgentState với retrieved_chunks, retrieved_sources và worker_io_log
     """
     task = state.get("task", "")
     top_k = state.get("retrieval_top_k", DEFAULT_TOP_K)
@@ -257,7 +257,7 @@ def run(state: dict) -> dict:
     state["workers_called"].append(WORKER_NAME)
 
     # Log worker IO (theo contract)
-    worker_io = {
+    worker_io_log = {
         "worker": WORKER_NAME,
         "input": {"task": task, "top_k": top_k},
         "output": None,
@@ -269,10 +269,12 @@ def run(state: dict) -> dict:
 
         sources = list({c["source"] for c in chunks})
 
+        # ✓ Requirement: Ghi `retrieved_chunks` và `worker_io_log` vào state
         state["retrieved_chunks"] = chunks
         state["retrieved_sources"] = sources
+        state["worker_io_log"] = worker_io_log
 
-        worker_io["output"] = {
+        worker_io_log["output"] = {
             "chunks_count": len(chunks),
             "sources": sources,
         }
@@ -281,13 +283,11 @@ def run(state: dict) -> dict:
         )
 
     except Exception as e:
-        worker_io["error"] = {"code": "RETRIEVAL_FAILED", "reason": str(e)}
+        worker_io_log["error"] = {"code": "RETRIEVAL_FAILED", "reason": str(e)}
         state["retrieved_chunks"] = []
         state["retrieved_sources"] = []
+        state["worker_io_log"] = worker_io_log
         state["history"].append(f"[{WORKER_NAME}] ERROR: {e}")
-
-    # Ghi worker IO vào state để trace
-    state.setdefault("worker_io_logs", []).append(worker_io)
 
     return state
 

@@ -1,0 +1,50 @@
+{
+  "task": "Sự cố P1 xảy ra lúc 2am. Đồng thời cần cấp Level 2 access tạm thời cho contractor để thực hiện emergency fix. Hãy nêu đầy đủ: (1) các bước SLA P1 notification phải làm ngay, và (2) điều kiện để cấp Level 2 emergency access.",
+  "route_reason": "Chọn MCP (Policy Tool Worker) vì yêu cầu cần check external tools (chính sách/quyền).",
+  "risk_high": true,
+  "needs_tool": true,
+  "hitl_triggered": false,
+  "retrieved_chunks": [
+    {
+      "text": "Ticket P1: Phản hồi ban đầu 15 phút. Xử lý trong 4 giờ.",
+      "source": "sla_p1_2026.txt",
+      "score": 0.95,
+      "metadata": {
+        "source": "sla_p1_2026.txt"
+      }
+    }
+  ],
+  "retrieved_sources": [
+    "sla_p1_2026.txt"
+  ],
+  "policy_result": {
+    "is_valid": true,
+    "detail": "Yêu cầu tuân thủ chính sách.",
+    "source": "access_control_sop.txt",
+    "exceptions_found": []
+  },
+  "mcp_tools_used": [],
+  "final_answer": "Dựa trên tài liệu nội bộ được cung cấp: [2] từ danh sách tài liệu.",
+  "sources": [
+    "sla_p1_2026.txt"
+  ],
+  "confidence": 0.95,
+  "history": [
+    "[supervisor] phân tích task: Sự cố P1 xảy ra lúc 2am. Đồng thời cần cấp Level 2 access tạm thời cho contracto",
+    "[supervisor] route=policy_tool_worker | reason=Chọn MCP (Policy Tool Worker) vì yêu cầu cần check external tools (chính sách/quyền).",
+    "[policy_tool_worker] Đang kiểm tra...",
+    "[retrieval_worker] Đang truy vấn...",
+    "[synthesis_worker] Đang tổng hợp câu trả lời...",
+    "[graph] Hoàn thành run trong 0ms"
+  ],
+  "workers_called": [
+    "policy_tool_worker",
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "supervisor_route": "policy_tool_worker",
+  "latency_ms": 0,
+  "run_id": "run_20260414_180632",
+  "worker_io_logs": [],
+  "question_id": "gq09"
+}

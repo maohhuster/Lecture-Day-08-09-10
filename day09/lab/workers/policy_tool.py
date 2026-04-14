@@ -130,7 +130,7 @@ def run(state: dict) -> dict:
         state: AgentState dict
 
     Returns:
-        Updated AgentState với policy_result và mcp_tools_used
+        Updated AgentState với policy_result, mcp_tools_used và worker_io_log
     """
     task = state.get("task", "")
     chunks = state.get("retrieved_chunks", [])
@@ -142,7 +142,7 @@ def run(state: dict) -> dict:
 
     state["workers_called"].append(WORKER_NAME)
 
-    worker_io = {
+    worker_io_log = {
         "worker": WORKER_NAME,
         "input": {
             "task": task,
@@ -151,8 +151,7 @@ def run(state: dict) -> dict:
         },
         "output": None,
         "error": None,
-        "mcp_tool_called": [],
-        "mcp_result": [],
+        "mcp_tools_called": [],
     }
 
     try:
@@ -161,8 +160,7 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("search_kb", {"query": task, "top_k": 3})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP search_kb")
-            worker_io["mcp_tool_called"].append("search_kb")
-            worker_io["mcp_result"].append(mcp_result)
+            worker_io_log["mcp_tools_called"].append("search_kb")
             if mcp_result.get("output") and mcp_result["output"].get("chunks"):
                 chunks = mcp_result["output"]["chunks"]
                 state["retrieved_chunks"] = chunks
@@ -176,24 +174,26 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("get_ticket_info", {"ticket_id": "P1-LATEST"})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP get_ticket_info")
-            worker_io["mcp_tool_called"].append("get_ticket_info")
-            worker_io["mcp_result"].append(mcp_result)
-        worker_io["output"] = {
+            worker_io_log["mcp_tools_called"].append("get_ticket_info")
+
+        # ✓ Requirement: Ghi `policy_result` và `worker_io_log` vào state
+        worker_io_log["output"] = {
             "policy_applies": policy_result["policy_applies"],
             "exceptions_count": len(policy_result.get("exceptions_found", [])),
-            "mcp_calls": len(state["mcp_tools_used"]),
+            "mcp_calls": len(worker_io_log["mcp_tools_called"]),
         }
+        state["worker_io_log"] = worker_io_log
         state["history"].append(
             f"[{WORKER_NAME}] policy_applies={policy_result['policy_applies']}, "
             f"exceptions={len(policy_result.get('exceptions_found', []))}"
         )
 
     except Exception as e:
-        worker_io["error"] = {"code": "POLICY_CHECK_FAILED", "reason": str(e)}
+        worker_io_log["error"] = {"code": "POLICY_CHECK_FAILED", "reason": str(e)}
         state["policy_result"] = {"error": str(e)}
+        state["worker_io_log"] = worker_io_log
         state["history"].append(f"[{WORKER_NAME}] ERROR: {e}")
 
-    state.setdefault("worker_io_logs", []).append(worker_io)
     return state
 
 
