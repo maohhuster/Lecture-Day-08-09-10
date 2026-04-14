@@ -67,24 +67,27 @@ def supervisor_node(state: AgentState) -> AgentState:
     hitl_keywords = ["err-", "không rõ", "lỗi hệ thống", "phàn nàn"]
 
     route = "retrieval_worker"
-    route_reason = "Tác vụ FAQ thông thường."
+    # ĐIỀU KIỆN DONE 4: Ghi log "không chọn MCP" mặc định
+    route_reason = "Không chọn MCP, mặc định dùng Retrieval Worker cho tác vụ FAQ."
     needs_tool = False
     risk_high = False
 
     # Logic định tuyến dựa trên rủi ro và nghiệp vụ
     if any(kw in task for kw in risk_keywords):
         risk_high = True
-        route_reason = "Phát hiện rủi ro cao/SLA P1."
+        route_reason = "Không chọn MCP, điều hướng về Retrieval Worker do phát hiện rủi ro cao/SLA P1."
 
     if any(kw in task for kw in policy_keywords):
         route = "policy_tool_worker"
-        route_reason = "Yêu cầu kiểm tra chính sách hoặc quyền hạn hệ thống."
+        # ĐIỀU KIỆN DONE 4: Ghi log "chọn MCP" 
+        route_reason = "Chọn MCP (Policy Tool Worker) vì yêu cầu cần check external tools (chính sách/quyền)."
         needs_tool = True
     
     # Kích hoạt Human Review nếu có lỗi không xác định đi kèm rủi ro
     if risk_high and any(kw in task for kw in hitl_keywords):
         route = "human_review"
-        route_reason = "Mã lỗi phức tạp trong tình huống khẩn cấp cần con người thẩm định."
+        route_reason = "Không chọn MCP, mã lỗi phức tạp trong tình huống khẩn cấp cần con người thẩm định."
+        needs_tool = False
 
     state["supervisor_route"] = route
     state["route_reason"] = route_reason
@@ -223,3 +226,15 @@ if __name__ == "__main__":
         print(f"REASON  : {result['route_reason']}")
         print(f"ANSWER  : {result['final_answer']}")
         print(f"WORKERS : {result['workers_called']}")
+
+def save_trace(result: AgentState, output_dir: str = "artifacts/traces") -> str:
+    import json
+    import os
+    from datetime import datetime
+    os.makedirs(output_dir, exist_ok=True)
+    trace_id = result.get('run_id', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    filename = f"{trace_id}.json"
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    return filepath

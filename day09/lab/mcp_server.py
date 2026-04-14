@@ -142,9 +142,35 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
     try:
         # Tái dùng retrieval logic từ workers/retrieval.py
         import sys
+        import os, sys
         sys.path.insert(0, os.path.dirname(__file__))
         from workers.retrieval import retrieve_dense
         chunks = retrieve_dense(query, top_k=top_k)
+        from workers.retrieval import _get_embedding_fn, _get_collection
+        
+        embed = _get_embedding_fn()
+        query_embedding = embed(query)
+        collection = _get_collection()
+        
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            include=["documents", "distances", "metadatas"]
+        )
+        
+        chunks = []
+        if results["documents"] and results["documents"][0]:
+            for i, (doc, dist, meta) in enumerate(zip(
+                results["documents"][0],
+                results["distances"][0],
+                results["metadatas"][0]
+            )):
+                chunks.append({
+                    "text": doc,
+                    "source": meta.get("source", "unknown"),
+                    "score": round(1 - dist, 4),
+                    "metadata": meta,
+                })
         sources = list({c["source"] for c in chunks})
         return {
             "chunks": chunks,

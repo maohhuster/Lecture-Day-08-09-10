@@ -32,16 +32,17 @@ WORKER_NAME = "policy_tool_worker"
 def _call_mcp_tool(tool_name: str, tool_input: dict) -> dict:
     """
     Gọi MCP tool.
-
-    Sprint 3 TODO: Implement bằng cách import mcp_server hoặc gọi HTTP.
-
-    Hiện tại: Import trực tiếp từ mcp_server.py (trong-process mock).
+    Sửa lại đường dẫn import linh hoạt để không bị phụ thuộc tên thư mục.
     """
     from datetime import datetime
+    import os
+    import sys
 
     try:
-        # TODO Sprint 3: Thay bằng real MCP client nếu dùng HTTP server
-        from day09.lab.mcp_server import dispatch_tool
+        # Đảm bảo có thể import mcp_server từ thư mục cha (lab/)
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+        from mcp_server import dispatch_tool
+        
         result = dispatch_tool(tool_name, tool_input)
         return {
             "tool": tool_name,
@@ -183,6 +184,8 @@ def run(state: dict) -> dict:
         },
         "output": None,
         "error": None,
+        "mcp_tool_called": [],
+        "mcp_result": [],
     }
 
     try:
@@ -191,7 +194,8 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("search_kb", {"query": task, "top_k": 3})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP search_kb")
-
+            worker_io["mcp_tool_called"].append("search_kb")
+            worker_io["mcp_result"].append(mcp_result)
             if mcp_result.get("output") and mcp_result["output"].get("chunks"):
                 chunks = mcp_result["output"]["chunks"]
                 state["retrieved_chunks"] = chunks
@@ -205,7 +209,8 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("get_ticket_info", {"ticket_id": "P1-LATEST"})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP get_ticket_info")
-
+            worker_io["mcp_tool_called"].append("get_ticket_info")
+            worker_io["mcp_result"].append(mcp_result)
         worker_io["output"] = {
             "policy_applies": policy_result["policy_applies"],
             "exceptions_count": len(policy_result.get("exceptions_found", [])),
