@@ -159,13 +159,25 @@ def synthesis_worker_node(state: AgentState) -> AgentState:
     state["workers_called"].append("synthesis_worker")
     state["history"].append("[synthesis_worker] Đang tổng hợp câu trả lời...")
 
-    # Logic tổng hợp đơn giản (Trong thực tế sẽ gọi call_llm với prompt)
-    context = " ".join([c["text"] for c in state["retrieved_chunks"]])
-    policy = state["policy_result"].get("detail", "")
-    
-    state["final_answer"] = f"Trả lời: {context} {policy}".strip()
-    state["sources"] = state["retrieved_sources"]
-    state["confidence"] = 0.9 if state["retrieved_chunks"] else 0.5
+    # Import synthesis worker module
+    try:
+        from workers.synthesis import synthesize
+        result = synthesize(
+            task=state.get("task", ""),
+            chunks=state.get("retrieved_chunks", []),
+            policy_result=state.get("policy_result", {})
+        )
+        state["final_answer"] = result.get("answer", "Không đủ thông tin.")
+        state["sources"] = result.get("sources", state.get("retrieved_sources", []))
+        state["confidence"] = result.get("confidence", 0.5)
+    except Exception as e:
+        # Fallback: Simple concatenation if synthesis fails
+        context = " ".join([c["text"] for c in state["retrieved_chunks"]])
+        policy = state["policy_result"].get("detail", "")
+        state["final_answer"] = f"Trả lời: {context} {policy}".strip() if context or policy else "Không đủ thông tin."
+        state["sources"] = state["retrieved_sources"]
+        state["confidence"] = 0.9 if state["retrieved_chunks"] else 0.5
+        state["history"].append(f"[synthesis_worker] fallback due to: {str(e)}")
     
     return state
 

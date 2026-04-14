@@ -1,5 +1,5 @@
 {
-  "task": "SLA xử lý ticket P1 là bao lâu?",
+  "task": "Ticket P1 không được phản hồi sau 10 phút. Hệ thống tự động làm gì?",
   "route_reason": "Không chọn MCP, điều hướng về Retrieval Worker do phát hiện rủi ro cao/SLA P1.",
   "risk_high": true,
   "needs_tool": false,
@@ -15,13 +15,13 @@
   ],
   "policy_result": {},
   "mcp_tools_used": [],
-  "final_answer": "Trả lời: SLA P1 yêu cầu xử lý trong 4 giờ.",
+  "final_answer": "Dựa trên tài liệu nội bộ được cung cấp: [2] từ danh sách tài liệu.",
   "sources": [
     "sla_p1_2026.txt"
   ],
-  "confidence": 0.9,
+  "confidence": 0.1,
   "history": [
-    "[supervisor] phân tích task: SLA xử lý ticket P1 là bao lâu?",
+    "[supervisor] phân tích task: Ticket P1 không được phản hồi sau 10 phút. Hệ thống tự động làm gì?",
     "[supervisor] route=retrieval_worker | reason=Không chọn MCP, điều hướng về Retrieval Worker do phát hiện rủi ro cao/SLA P1.",
     "[retrieval_worker] Đang truy vấn ChromaDB...",
     "[synthesis_worker] Đang tổng hợp câu trả lời...",
@@ -33,6 +33,6 @@
   ],
   "supervisor_route": "retrieval_worker",
   "latency_ms": 0,
-  "run_id": "run_20260414_165509",
-  "question_id": "q01"
+  "run_id": "run_20260414_174705",
+  "question_id": "q06"
 }

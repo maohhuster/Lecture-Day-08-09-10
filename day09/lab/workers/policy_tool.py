@@ -69,26 +69,19 @@ def analyze_policy(task: str, chunks: list) -> dict:
     """
     Phân tích policy dựa trên context chunks.
 
-    Xử lý các exceptions:
-    - Flash Sale → không được hoàn tiền
-    - Digital product / license key / subscription → không được hoàn tiền
-    - Sản phẩm đã kích hoạt → không được hoàn tiền
-    - Đơn hàng trước 01/02/2026 → áp dụng policy v3 (không có trong docs)
-
     Returns:
         dict with: policy_applies, policy_name, exceptions_found, source, rule, explanation
     """
     task_lower = task.lower()
     context_text = " ".join([c.get("text", "") for c in chunks]).lower()
 
-    # --- Rule-based exception detection ---
     exceptions_found = []
 
     # Exception 1: Flash Sale
     if "flash sale" in task_lower or "flash sale" in context_text:
         exceptions_found.append({
             "type": "flash_sale_exception",
-            "rule": "Đơn hàng Flash Sale không được hoàn tiền (Điều 3, chính sách v4).",
+            "rule": "Đơn hàng Flash Sale không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
@@ -97,7 +90,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
        any(kw in context_text for kw in ["kỹ thuật số", "license key", "subscription"]):
         exceptions_found.append({
             "type": "digital_product_exception",
-            "rule": "Sản phẩm kỹ thuật số (license key, subscription) không được hoàn tiền (Điều 3).",
+            "rule": "Sản phẩm kỹ thuật số không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
@@ -106,39 +99,14 @@ def analyze_policy(task: str, chunks: list) -> dict:
        any(kw in context_text for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]):
         exceptions_found.append({
             "type": "activated_exception",
-            "rule": "Sản phẩm đã kích hoạt hoặc đăng ký tài khoản không được hoàn tiền (Điều 3).",
+            "rule": "Sản phẩm đã kích hoạt không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
-    # Determine policy_applies
     policy_applies = len(exceptions_found) == 0
-
-    # Determine which policy version applies (temporal scoping)
     policy_name = "refund_policy_v4"
-    policy_version_note = ""
-    if any(kw in task_lower for kw in ["31/01", "30/01", "trước 01/02", "old policy"]):
-        policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
 
-    # Attempt LLM analysis if API key is available
     explanation = "Analyzed via rule-based policy check."
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key and not api_key.startswith("sk-..."):
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "Bạn là chuyên gia phân tích chính sách. Dựa vào context, xác định policy áp dụng và các exceptions."},
-                    {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-                ]
-            )
-            explanation = response.choices[0].message.content
-        except Exception as e:
-            explanation += f" (LLM analysis failed: {e})"
-    else:
-        explanation += " (LLM analysis skipped: API key missing or invalid)"
-
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
     return {
@@ -146,7 +114,6 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "policy_name": policy_name,
         "exceptions_found": exceptions_found,
         "source": sources,
-        "policy_version_note": policy_version_note,
         "explanation": explanation,
     }
 

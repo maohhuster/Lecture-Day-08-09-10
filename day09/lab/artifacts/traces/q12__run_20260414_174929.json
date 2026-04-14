@@ -1,5 +1,5 @@
 {
-  "task": "Ai phải phê duyệt để cấp quyền Level 3?",
+  "task": "Khách hàng đặt đơn ngày 31/01/2026 và yêu cầu hoàn tiền ngày 07/02/2026. Sản phẩm lỗi nhà sản xuất, chưa kích hoạt, không phải Flash Sale. Được hoàn tiền không?",
   "route_reason": "Chọn MCP (Policy Tool Worker) vì yêu cầu cần check external tools (chính sách/quyền).",
   "risk_high": false,
   "needs_tool": true,
@@ -19,13 +19,13 @@
     "source": "access_control_sop.txt"
   },
   "mcp_tools_used": [],
-  "final_answer": "Trả lời: Quy trình hỗ trợ chung cho nhân viên. Yêu cầu tuân thủ Access Control SOP Section 2.",
+  "final_answer": "Dựa trên tài liệu nội bộ được cung cấp: [2] từ danh sách tài liệu.",
   "sources": [
     "helpdesk_faq.txt"
   ],
-  "confidence": 0.9,
+  "confidence": 0.1,
   "history": [
-    "[supervisor] phân tích task: Ai phải phê duyệt để cấp quyền Level 3?",
+    "[supervisor] phân tích task: Khách hàng đặt đơn ngày 31/01/2026 và yêu cầu hoàn tiền ngày 07/02/2026. Sản phẩ",
     "[supervisor] route=policy_tool_worker | reason=Chọn MCP (Policy Tool Worker) vì yêu cầu cần check external tools (chính sách/quyền).",
     "[policy_tool_worker] Đang kiểm tra logic chính sách...",
     "[retrieval_worker] Đang truy vấn ChromaDB...",
@@ -39,6 +39,6 @@
   ],
   "supervisor_route": "policy_tool_worker",
   "latency_ms": 0,
-  "run_id": "run_20260414_165509",
-  "question_id": "q03"
+  "run_id": "run_20260414_174929",
+  "question_id": "q12"
 }

@@ -15,11 +15,11 @@
   ],
   "policy_result": {},
   "mcp_tools_used": [],
-  "final_answer": "Trả lời: SLA P1 yêu cầu xử lý trong 4 giờ.",
+  "final_answer": "Dựa trên tài liệu nội bộ được cung cấp: [2] từ danh sách tài liệu.",
   "sources": [
     "sla_p1_2026.txt"
   ],
-  "confidence": 0.9,
+  "confidence": 0.1,
   "history": [
     "[supervisor] phân tích task: Quy trình xử lý sự cố P1 gồm mấy bước và bước đầu tiên là gì?",
     "[supervisor] route=retrieval_worker | reason=Không chọn MCP, điều hướng về Retrieval Worker do phát hiện rủi ro cao/SLA P1.",
@@ -33,6 +33,6 @@
   ],
   "supervisor_route": "retrieval_worker",
   "latency_ms": 0,
-  "run_id": "run_20260414_165509",
+  "run_id": "run_20260414_174705",
   "question_id": "q08"
 }

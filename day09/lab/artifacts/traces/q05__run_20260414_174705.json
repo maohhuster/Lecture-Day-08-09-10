@@ -1,5 +1,5 @@
 {
-  "task": "ERR-403-AUTH là lỗi gì và cách xử lý?",
+  "task": "Nhân viên được làm remote tối đa mấy ngày mỗi tuần?",
   "route_reason": "Không chọn MCP, mặc định dùng Retrieval Worker cho tác vụ FAQ.",
   "risk_high": false,
   "needs_tool": false,
@@ -15,13 +15,13 @@
   ],
   "policy_result": {},
   "mcp_tools_used": [],
-  "final_answer": "Trả lời: Quy trình hỗ trợ chung cho nhân viên.",
+  "final_answer": "Dựa trên tài liệu nội bộ được cung cấp: [2] từ danh sách tài liệu.",
   "sources": [
     "helpdesk_faq.txt"
   ],
-  "confidence": 0.9,
+  "confidence": 0.1,
   "history": [
-    "[supervisor] phân tích task: ERR-403-AUTH là lỗi gì và cách xử lý?",
+    "[supervisor] phân tích task: Nhân viên được làm remote tối đa mấy ngày mỗi tuần?",
     "[supervisor] route=retrieval_worker | reason=Không chọn MCP, mặc định dùng Retrieval Worker cho tác vụ FAQ.",
     "[retrieval_worker] Đang truy vấn ChromaDB...",
     "[synthesis_worker] Đang tổng hợp câu trả lời...",
@@ -33,6 +33,6 @@
   ],
   "supervisor_route": "retrieval_worker",
   "latency_ms": 0,
-  "run_id": "run_20260414_165509",
-  "question_id": "q09"
+  "run_id": "run_20260414_174705",
+  "question_id": "q05"
 }
