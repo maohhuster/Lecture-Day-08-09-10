@@ -137,10 +137,10 @@ python graph.py  # Chạy 1 test query cơ bản
 5. Chạy `graph.invoke()` với 2 test queries khác nhau
 
 **Definition of Done:**
-- [ ] `python graph.py` chạy không lỗi
-- [ ] Supervisor route đúng cho ít nhất 2 loại câu hỏi khác nhau (retrieval vs policy)
-- [ ] Mỗi bước routing được log với `route_reason`
-- [ ] State object có: `task`, `route_reason`, `history`, `risk_high`
+- [x] `python graph.py` chạy không lỗi
+- [x] Supervisor route đúng cho ít nhất 2 loại câu hỏi khác nhau (retrieval vs policy)
+- [x] Mỗi bước routing được log với `route_reason`
+- [x] State object có: `task`, `route_reason`, `history`, `risk_high`
 
 **Gợi ý routing logic:**
 ```
@@ -183,10 +183,10 @@ print(result["retrieved_chunks"])
 ```
 
 **Definition of Done:**
-- [ ] Mỗi worker test độc lập được (không cần graph)
-- [ ] Input/output của từng worker khớp với `contracts/worker_contracts.yaml`
-- [ ] Policy worker xử lý đúng ít nhất 1 exception case (Flash Sale hoặc digital product)
-- [ ] Synthesis worker trả về answer có citation `[1]`, không hallucinate
+- [x] Mỗi worker test độc lập được (không cần graph)
+- [x] Input/output của từng worker khớp với `contracts/worker_contracts.yaml`
+- [x] Policy worker xử lý đúng ít nhất 1 exception case (Flash Sale hoặc digital product)
+- [x] Synthesis worker trả về answer có citation `[1]`, không hallucinate
 
 ---
 
@@ -221,10 +221,10 @@ print(result["retrieved_chunks"])
 | **Advanced** | MCP server thật dùng `mcp` library hoặc HTTP server | Bonus +2 |
 
 **Definition of Done:**
-- [ ] `mcp_server.py` có ít nhất 2 tools implement
-- [ ] Policy worker gọi MCP client, không direct call ChromaDB
-- [ ] Trace ghi được `mcp_tool_called` cho từng lần gọi
-- [ ] Supervisor ghi log "chọn MCP vs không chọn MCP" vào `route_reason`
+- [x] `mcp_server.py` có ít nhất 2 tools implement (4 tools: search_kb, get_ticket_info, check_access_permission, create_ticket)
+- [x] Policy worker gọi MCP client, không direct call ChromaDB (✓ calls search_kb + get_ticket_info)
+- [x] Trace ghi được `mcp_tool_called` cho từng lần gọi (✓ worker_io_logs + mcp_tools_used array)
+- [x] Supervisor ghi log "chọn MCP vs không chọn MCP" vào `route_reason` (✓ "Chọn MCP..." vs "Không chọn MCP...")
 
 ---
 
