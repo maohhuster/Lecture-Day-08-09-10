@@ -1,6 +1,6 @@
 # Báo Cáo Nhóm — Lab Day 09: Multi-Agent Orchestration
 
-**Tên nhóm:** Nhóm Nguyễn Đức Mạnh & Lê Đức Hải  
+**Tên nhóm:** C401  
 **Thành viên:**
 | Tên | Vai trò | Email |
 |-----|---------|-------|
