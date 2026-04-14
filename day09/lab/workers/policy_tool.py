@@ -20,6 +20,8 @@ import os
 import sys
 from typing import Optional
 
+from dotenv import load_dotenv
+
 WORKER_NAME = "policy_tool_worker"
 
 
@@ -39,7 +41,7 @@ def _call_mcp_tool(tool_name: str, tool_input: dict) -> dict:
 
     try:
         # TODO Sprint 3: Thay bằng real MCP client nếu dùng HTTP server
-        from mcp_server import dispatch_tool
+        from day09.lab.mcp_server import dispatch_tool
         result = dispatch_tool(tool_name, tool_input)
         return {
             "tool": tool_name,
@@ -66,9 +68,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
     """
     Phân tích policy dựa trên context chunks.
 
-    TODO Sprint 2: Implement logic này với LLM call hoặc rule-based check.
-
-    Cần xử lý các exceptions:
+    Xử lý các exceptions:
     - Flash Sale → không được hoàn tiền
     - Digital product / license key / subscription → không được hoàn tiền
     - Sản phẩm đã kích hoạt → không được hoàn tiền
@@ -92,7 +92,8 @@ def analyze_policy(task: str, chunks: list) -> dict:
         })
 
     # Exception 2: Digital product
-    if any(kw in task_lower for kw in ["license key", "license", "subscription", "kỹ thuật số"]):
+    if any(kw in task_lower for kw in ["license key", "license", "subscription", "kỹ thuật số"]) or \
+       any(kw in context_text for kw in ["kỹ thuật số", "license key", "subscription"]):
         exceptions_found.append({
             "type": "digital_product_exception",
             "rule": "Sản phẩm kỹ thuật số (license key, subscription) không được hoàn tiền (Điều 3).",
@@ -100,7 +101,8 @@ def analyze_policy(task: str, chunks: list) -> dict:
         })
 
     # Exception 3: Activated product
-    if any(kw in task_lower for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]):
+    if any(kw in task_lower for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]) or \
+       any(kw in context_text for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]):
         exceptions_found.append({
             "type": "activated_exception",
             "rule": "Sản phẩm đã kích hoạt hoặc đăng ký tài khoản không được hoàn tiền (Điều 3).",
@@ -111,24 +113,30 @@ def analyze_policy(task: str, chunks: list) -> dict:
     policy_applies = len(exceptions_found) == 0
 
     # Determine which policy version applies (temporal scoping)
-    # TODO: Check nếu đơn hàng trước 01/02/2026 → v3 applies (không có docs, nên flag cho synthesis)
     policy_name = "refund_policy_v4"
     policy_version_note = ""
-    if "31/01" in task_lower or "30/01" in task_lower or "trước 01/02" in task_lower:
+    if any(kw in task_lower for kw in ["31/01", "30/01", "trước 01/02", "old policy"]):
         policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
 
-    # TODO Sprint 2: Gọi LLM để phân tích phức tạp hơn
-    # Ví dụ:
-    # from openai import OpenAI
-    # client = OpenAI()
-    # response = client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[
-    #         {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
-    #         {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-    #     ]
-    # )
-    # analysis = response.choices[0].message.content
+    # Attempt LLM analysis if API key is available
+    explanation = "Analyzed via rule-based policy check."
+    api_key = os.getenv("OPENAI_API_KEY")
+    if api_key and not api_key.startswith("sk-..."):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Bạn là chuyên gia phân tích chính sách. Dựa vào context, xác định policy áp dụng và các exceptions."},
+                    {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
+                ]
+            )
+            explanation = response.choices[0].message.content
+        except Exception as e:
+            explanation += f" (LLM analysis failed: {e})"
+    else:
+        explanation += " (LLM analysis skipped: API key missing or invalid)"
 
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
@@ -138,7 +146,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "exceptions_found": exceptions_found,
         "source": sources,
         "policy_version_note": policy_version_note,
-        "explanation": "Analyzed via rule-based policy check. TODO: upgrade to LLM-based analysis.",
+        "explanation": explanation,
     }
 
 
@@ -222,8 +230,11 @@ def run(state: dict) -> dict:
 # ─────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import sys
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding='utf-8')
     print("=" * 50)
-    print("Policy Tool Worker — Standalone Test")
+    print("Policy Tool Worker - Standalone Test")
     print("=" * 50)
 
     test_cases = [
@@ -248,7 +259,7 @@ if __name__ == "__main__":
     ]
 
     for tc in test_cases:
-        print(f"\n▶ Task: {tc['task'][:70]}...")
+        print(f"\n- Task: {tc['task'][:70]}...")
         result = run(tc.copy())
         pr = result.get("policy_result", {})
         print(f"  policy_applies: {pr.get('policy_applies')}")
@@ -257,4 +268,4 @@ if __name__ == "__main__":
                 print(f"  exception: {ex['type']} — {ex['rule'][:60]}...")
         print(f"  MCP calls: {len(result.get('mcp_tools_used', []))}")
 
-    print("\n✅ policy_tool_worker test done.")
+    print("\n[OK] policy_tool_worker test done.")
