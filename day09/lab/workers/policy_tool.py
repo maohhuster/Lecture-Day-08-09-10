@@ -69,26 +69,19 @@ def analyze_policy(task: str, chunks: list) -> dict:
     """
     Phân tích policy dựa trên context chunks.
 
-    Xử lý các exceptions:
-    - Flash Sale → không được hoàn tiền
-    - Digital product / license key / subscription → không được hoàn tiền
-    - Sản phẩm đã kích hoạt → không được hoàn tiền
-    - Đơn hàng trước 01/02/2026 → áp dụng policy v3 (không có trong docs)
-
     Returns:
         dict with: policy_applies, policy_name, exceptions_found, source, rule, explanation
     """
     task_lower = task.lower()
     context_text = " ".join([c.get("text", "") for c in chunks]).lower()
 
-    # --- Rule-based exception detection ---
     exceptions_found = []
 
     # Exception 1: Flash Sale
     if "flash sale" in task_lower or "flash sale" in context_text:
         exceptions_found.append({
             "type": "flash_sale_exception",
-            "rule": "Đơn hàng Flash Sale không được hoàn tiền (Điều 3, chính sách v4).",
+            "rule": "Đơn hàng Flash Sale không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
@@ -97,7 +90,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
        any(kw in context_text for kw in ["kỹ thuật số", "license key", "subscription"]):
         exceptions_found.append({
             "type": "digital_product_exception",
-            "rule": "Sản phẩm kỹ thuật số (license key, subscription) không được hoàn tiền (Điều 3).",
+            "rule": "Sản phẩm kỹ thuật số không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
@@ -106,39 +99,14 @@ def analyze_policy(task: str, chunks: list) -> dict:
        any(kw in context_text for kw in ["đã kích hoạt", "đã đăng ký", "đã sử dụng"]):
         exceptions_found.append({
             "type": "activated_exception",
-            "rule": "Sản phẩm đã kích hoạt hoặc đăng ký tài khoản không được hoàn tiền (Điều 3).",
+            "rule": "Sản phẩm đã kích hoạt không được hoàn tiền.",
             "source": "policy_refund_v4.txt",
         })
 
-    # Determine policy_applies
     policy_applies = len(exceptions_found) == 0
-
-    # Determine which policy version applies (temporal scoping)
     policy_name = "refund_policy_v4"
-    policy_version_note = ""
-    if any(kw in task_lower for kw in ["31/01", "30/01", "trước 01/02", "old policy"]):
-        policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
 
-    # Attempt LLM analysis if API key is available
     explanation = "Analyzed via rule-based policy check."
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key and not api_key.startswith("sk-..."):
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "Bạn là chuyên gia phân tích chính sách. Dựa vào context, xác định policy áp dụng và các exceptions."},
-                    {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-                ]
-            )
-            explanation = response.choices[0].message.content
-        except Exception as e:
-            explanation += f" (LLM analysis failed: {e})"
-    else:
-        explanation += " (LLM analysis skipped: API key missing or invalid)"
-
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
     return {
@@ -146,7 +114,6 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "policy_name": policy_name,
         "exceptions_found": exceptions_found,
         "source": sources,
-        "policy_version_note": policy_version_note,
         "explanation": explanation,
     }
 
@@ -163,7 +130,7 @@ def run(state: dict) -> dict:
         state: AgentState dict
 
     Returns:
-        Updated AgentState với policy_result và mcp_tools_used
+        Updated AgentState với policy_result, mcp_tools_used và worker_io_log
     """
     task = state.get("task", "")
     chunks = state.get("retrieved_chunks", [])
@@ -175,7 +142,7 @@ def run(state: dict) -> dict:
 
     state["workers_called"].append(WORKER_NAME)
 
-    worker_io = {
+    worker_io_log = {
         "worker": WORKER_NAME,
         "input": {
             "task": task,
@@ -184,8 +151,7 @@ def run(state: dict) -> dict:
         },
         "output": None,
         "error": None,
-        "mcp_tool_called": [],
-        "mcp_result": [],
+        "mcp_tools_called": [],
     }
 
     try:
@@ -194,8 +160,7 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("search_kb", {"query": task, "top_k": 3})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP search_kb")
-            worker_io["mcp_tool_called"].append("search_kb")
-            worker_io["mcp_result"].append(mcp_result)
+            worker_io_log["mcp_tools_called"].append("search_kb")
             if mcp_result.get("output") and mcp_result["output"].get("chunks"):
                 chunks = mcp_result["output"]["chunks"]
                 state["retrieved_chunks"] = chunks
@@ -209,24 +174,26 @@ def run(state: dict) -> dict:
             mcp_result = _call_mcp_tool("get_ticket_info", {"ticket_id": "P1-LATEST"})
             state["mcp_tools_used"].append(mcp_result)
             state["history"].append(f"[{WORKER_NAME}] called MCP get_ticket_info")
-            worker_io["mcp_tool_called"].append("get_ticket_info")
-            worker_io["mcp_result"].append(mcp_result)
-        worker_io["output"] = {
+            worker_io_log["mcp_tools_called"].append("get_ticket_info")
+
+        # ✓ Requirement: Ghi `policy_result` và `worker_io_log` vào state
+        worker_io_log["output"] = {
             "policy_applies": policy_result["policy_applies"],
             "exceptions_count": len(policy_result.get("exceptions_found", [])),
-            "mcp_calls": len(state["mcp_tools_used"]),
+            "mcp_calls": len(worker_io_log["mcp_tools_called"]),
         }
+        state["worker_io_log"] = worker_io_log
         state["history"].append(
             f"[{WORKER_NAME}] policy_applies={policy_result['policy_applies']}, "
             f"exceptions={len(policy_result.get('exceptions_found', []))}"
         )
 
     except Exception as e:
-        worker_io["error"] = {"code": "POLICY_CHECK_FAILED", "reason": str(e)}
+        worker_io_log["error"] = {"code": "POLICY_CHECK_FAILED", "reason": str(e)}
         state["policy_result"] = {"error": str(e)}
+        state["worker_io_log"] = worker_io_log
         state["history"].append(f"[{WORKER_NAME}] ERROR: {e}")
 
-    state.setdefault("worker_io_logs", []).append(worker_io)
     return state
 
 

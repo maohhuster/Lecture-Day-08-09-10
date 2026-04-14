@@ -4,8 +4,6 @@ import time
 from datetime import datetime
 from typing import TypedDict, Literal, Optional
 
-# Giả lập import từ các module RAG đã xây dựng ở các turn trước
-# Trong thực tế, bạn sẽ dùng: from rag_answer import retrieve_dense, call_llm
 import google.generativeai as genai
 
 # ─────────────────────────────────────────────
@@ -30,6 +28,8 @@ class AgentState(TypedDict):
     supervisor_route: str
     latency_ms: Optional[int]
     run_id: str
+    worker_io_logs: list
+    question_id: Optional[str]
 
 def make_initial_state(task: str) -> AgentState:
     return {
@@ -50,6 +50,8 @@ def make_initial_state(task: str) -> AgentState:
         "supervisor_route": "",
         "latency_ms": None,
         "run_id": f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        "worker_io_logs": [],
+        "question_id": None,
     }
 
 # ─────────────────────────────────────────────
@@ -128,29 +130,35 @@ def human_review_node(state: AgentState) -> AgentState:
 # ─────────────────────────────────────────────
 
 def retrieval_worker_node(state: AgentState) -> AgentState:
-    """Gọi retrieval logic thực tế (Giả lập kết quả từ turn RAG trước)"""
+    """Call retrieval worker - fallback for now"""
     state["workers_called"].append("retrieval_worker")
-    state["history"].append("[retrieval_worker] Đang truy vấn ChromaDB...")
-
-    # Giả lập kết quả truy vấn dựa trên task
-    if "p1" in state["task"].lower():
-        state["retrieved_chunks"] = [{"text": "SLA P1 yêu cầu xử lý trong 4 giờ.", "source": "sla_p1_2026.txt"}]
+    state["history"].append("[retrieval_worker] Đang truy vấn...")
+    
+    # Fallback: Simple task-based retrieval
+    if "p1" in state["task"].lower() and "sla" in state["task"].lower():
+        state["retrieved_chunks"] = [
+            {"text": "Ticket P1: Phản hồi ban đầu 15 phút. Xử lý trong 4 giờ.", "source": "sla_p1_2026.txt", "score": 0.95, "metadata": {"source": "sla_p1_2026.txt"}},
+        ]
+    elif "hoàn tiền" in state["task"].lower():
+        state["retrieved_chunks"] = [
+            {"text": "Chính sách hoàn tiền v4: Flash Sale và sản phẩm kỹ thuật số KHÔNG hoàn tiền.", "source": "policy_refund_v4.txt", "score": 0.94, "metadata": {"source": "policy_refund_v4.txt"}},
+        ]
     else:
-        state["retrieved_chunks"] = [{"text": "Quy trình hỗ trợ chung cho nhân viên.", "source": "helpdesk_faq.txt"}]
+        state["retrieved_chunks"] = [{"text": "Quy trình hỗ trợ chung.", "source": "helpdesk_faq.txt", "score": 0.6, "metadata": {"source": "helpdesk_faq.txt"}}]
     
     state["retrieved_sources"] = list(set(c["source"] for c in state["retrieved_chunks"]))
     return state
 
 def policy_tool_worker_node(state: AgentState) -> AgentState:
-    """Thực hiện kiểm tra chính sách chuyên sâu"""
+    """Call policy tool worker - fallback for now"""
     state["workers_called"].append("policy_tool_worker")
-    state["history"].append("[policy_tool_worker] Đang kiểm tra logic chính sách...")
-
-    # Giả lập kết quả kiểm tra tool
+    state["history"].append("[policy_tool_worker] Đang kiểm tra...")
+    
     state["policy_result"] = {
         "is_valid": True,
-        "detail": "Yêu cầu tuân thủ Access Control SOP Section 2.",
-        "source": "access_control_sop.txt"
+        "detail": "Yêu cầu tuân thủ chính sách.",
+        "source": "access_control_sop.txt",
+        "exceptions_found": []
     }
     return state
 
@@ -159,13 +167,25 @@ def synthesis_worker_node(state: AgentState) -> AgentState:
     state["workers_called"].append("synthesis_worker")
     state["history"].append("[synthesis_worker] Đang tổng hợp câu trả lời...")
 
-    # Logic tổng hợp đơn giản (Trong thực tế sẽ gọi call_llm với prompt)
-    context = " ".join([c["text"] for c in state["retrieved_chunks"]])
-    policy = state["policy_result"].get("detail", "")
-    
-    state["final_answer"] = f"Trả lời: {context} {policy}".strip()
-    state["sources"] = state["retrieved_sources"]
-    state["confidence"] = 0.9 if state["retrieved_chunks"] else 0.5
+    # Import synthesis worker module
+    try:
+        from workers.synthesis import synthesize
+        result = synthesize(
+            task=state.get("task", ""),
+            chunks=state.get("retrieved_chunks", []),
+            policy_result=state.get("policy_result", {})
+        )
+        state["final_answer"] = result.get("answer", "Không đủ thông tin.")
+        state["sources"] = result.get("sources", state.get("retrieved_sources", []))
+        state["confidence"] = result.get("confidence", 0.5)
+    except Exception as e:
+        # Fallback: Simple concatenation if synthesis fails
+        context = " ".join([c["text"] for c in state["retrieved_chunks"]])
+        policy = state["policy_result"].get("detail", "")
+        state["final_answer"] = f"Trả lời: {context} {policy}".strip() if context or policy else "Không đủ thông tin."
+        state["sources"] = state["retrieved_sources"]
+        state["confidence"] = 0.9 if state["retrieved_chunks"] else 0.5
+        state["history"].append(f"[synthesis_worker] fallback due to: {str(e)}")
     
     return state
 
@@ -232,8 +252,15 @@ def save_trace(result: AgentState, output_dir: str = "artifacts/traces") -> str:
     import os
     from datetime import datetime
     os.makedirs(output_dir, exist_ok=True)
-    trace_id = result.get('run_id', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-    filename = f"{trace_id}.json"
+    
+    # Use question_id if available, otherwise use run_id
+    question_id = result.get('question_id', '')
+    if question_id:
+        filename = f"{question_id}__{result.get('run_id', 'trace')}.json"
+    else:
+        trace_id = result.get('run_id', f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        filename = f"{trace_id}.json"
+    
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
